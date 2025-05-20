@@ -79,7 +79,7 @@ export const Home = () => {
         </div>
       ) : (
         <div className="products-container">
-          <div className="title">
+          <div className="title text-5xl text-red-900">
             This is an example extension home page user interface.
           </div>
 
@@ -98,41 +98,63 @@ export const Home = () => {
             </div>
           </div>
 
-          <div>
-            {productList.map((product, index) => (
-              <div className="product-list-container flex-row" key={`product-${product.name}-${index}`}>
-                <img className="mr-r-12" src={product.is_active ? greenDot : grayDot} alt="status" />
-                <div className="card-avatar mr-r-12">
-                  <img src={productProfileImage(product.media)} alt={product.name} />
-                </div>
-                <div className="flex-column">
-                  <div className="flex-row">
-                    <div className="product-name" data-testid={`product-name-${product.id}`}>
-                      {product.name}
-                    </div>
-                    <div className="product-item-code">|</div>
-                    {product.item_code && (
-                      <span className="product-item-code">
-                        Item Code:
-                        <span className="cl-RoyalBlue" data-testid={`product-item-code-${product.id}`}>
-                          {product.item_code}
-                        </span>
-                      </span>
-                    )}
-                  </div>
-                  {product.brand && (
-                    <div className="product-brand-name" data-testid={`product-brand-name-${product.id}`}>
-                      {product.brand.name}
-                    </div>
-                  )}
-                  {product.category_slug && (
-                    <div className="product-category" data-testid={`product-category-slug-${product.id}`}>
-                      Category: <span>{product.category_slug}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+          <div className="space-y-4">
+  {productList.map((product, index) => (
+    <div
+      key={`product-${product.name}-${index}`}
+      className="flex items-center gap-4 p-4 rounded-xl shadow-md bg-white hover:shadow-lg transition-shadow"
+    >
+      <img
+        src={product.is_active ? greenDot : grayDot}
+        alt="status"
+        className="w-3 h-3 mt-1"
+      />
+      <div className="w-12 h-12 rounded-full overflow-hidden border border-gray-300">
+        <img
+          src={productProfileImage(product.media)}
+          alt={product.name}
+          className="w-full h-full object-cover"
+        />
+      </div>
+      <div className="flex flex-col">
+        <div className="flex items-center gap-2 text-sm font-medium text-gray-800">
+          <div data-testid={`product-name-${product.id}`}>{product.name}</div>
+          {product.item_code && (
+            <>
+              <span className="text-gray-400">|</span>
+              <span>
+                Item Code:{" "}
+                <span
+                  className="text-blue-600"
+                  data-testid={`product-item-code-${product.id}`}
+                >
+                  {product.item_code}
+                </span>
+              </span>
+            </>
+          )}
+        </div>
+
+        {product.brand && (
+          <div
+            className="text-xs text-gray-600"
+            data-testid={`product-brand-name-${product.id}`}
+          >
+            {product.brand.name}
+          </div>
+        )}
+
+        {product.category_slug && (
+          <div
+            className="text-xs text-gray-500"
+            data-testid={`product-category-slug-${product.id}`}
+          >
+            Category: <span>{product.category_slug}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  ))}
           </div>
         </div>
       )}
