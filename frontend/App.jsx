@@ -1,9 +1,15 @@
 import React from "react";
-import { Home } from "./pages/Home";
+import { Outlet } from "react-router-dom";
+import Sidebar from "./components/Sidebar/Sidebar";
+import "./App.css";
+
 function App() {
   return (
-    <div className="root">
-      <Home />
+    <div className="flex">
+      <Sidebar />
+      <div className="ml-64 flex-1">
+        <Outlet />
+      </div>
     </div>
   );
 }

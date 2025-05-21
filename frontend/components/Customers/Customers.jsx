@@ -1,23 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from 'react-router-dom';
-import "./style/home.css";
-import greenDot from "../public/assets/green-dot.svg";
-import grayDot from "../public/assets/grey-dot.svg";
-import DEFAULT_NO_IMAGE from "../public/assets/default_icon_listing.png";
-import loaderGif from "../public/assets/loader.gif";
-import axios from "axios";
-import urlJoin from "url-join";
-import { customers } from "../constants/customers";
+import { customers } from "../../constants/customers";
 
-const EXAMPLE_MAIN_URL = window.location.origin;
 
-export const Home = () => {
+export const Customers = () => {
   const [pageLoading, setPageLoading] = useState(false);
-  const [productList, setProductList] = useState([]);
-  const DOC_URL_PATH = "/help/docs/sdk/latest/platform/company/catalog/#getProducts";
-  const DOC_APP_URL_PATH = "/help/docs/sdk/latest/platform/application/catalog#getAppProducts";
-  const { application_id, company_id } = useParams();
-  const documentationUrl = 'https://api.fynd.com';
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState("firstname");
   const [sortDirection, setSortDirection] = useState("asc");
@@ -25,51 +11,6 @@ export const Home = () => {
   const [filteredCustomers, setFilteredCustomers] = useState(customers);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
-  
-  useEffect(() => {
-    isApplicationLaunch() ? fetchApplicationProducts() : fetchProducts();
-  }, [application_id]);
-
-
-  const fetchProducts = async () => {
-    setPageLoading(true);
-    try {
-      const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, '/api/products'),{
-        headers: {
-          "x-company-id": company_id,
-        }
-      });
-      setProductList(data.items);
-    } catch (e) {
-      console.error("Error fetching products:", e);
-    } finally {
-      setPageLoading(false);
-    }
-  };
-
-  const fetchApplicationProducts = async () => {
-    setPageLoading(true);
-    try {
-      const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, `/api/products/application/${application_id}`),{
-        headers: {
-          "x-company-id": company_id,
-        }
-      });
-      setProductList(data.items);
-    } catch (e) {
-      console.error("Error fetching application products:", e);
-    } finally {
-      setPageLoading(false);
-    }
-  };
-
-  const getDocumentPageLink = () => {
-    return documentationUrl
-      .replace("api", "partners")
-      .concat(isApplicationLaunch() ? DOC_APP_URL_PATH : DOC_URL_PATH);
-  };
-
-  const isApplicationLaunch = () => !!application_id;
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -79,6 +20,37 @@ export const Home = () => {
       setSortDirection("asc");
     }
   };
+
+  useEffect(() => {
+    let result = [...customers];
+
+    if (searchTerm) {
+      result = result.filter(customer => 
+        customer.firstname.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.lastname.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.mobile.includes(searchTerm)
+      );
+    }
+
+    if (filterVipRatio > 0) {
+      result = result.filter(customer => customer.vipRatio >= filterVipRatio);
+    }
+
+    result.sort((a, b) => {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
+      
+      if (sortDirection === "asc") {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+
+    setFilteredCustomers(result);
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [searchTerm, sortField, sortDirection, filterVipRatio]);
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
