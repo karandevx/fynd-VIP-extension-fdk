@@ -9,9 +9,9 @@ const Configure = () => {
     description: '',
     variants: [
       {
-        name: '',
-        price: '',
-        duration: '',
+    name: '',
+    price: '',
+    duration: '',
         features: [''],
         isPopular: false
       }
@@ -246,10 +246,10 @@ const Configure = () => {
                         </div>
                       </div>
 
-                      <div>
+                <div>
                         <label className="block text-sm font-medium mb-1 text-gray-700">Duration (months)</label>
-                        <input
-                          type="number"
+                  <input
+                    type="number"
                           value={variant.duration}
                           onChange={(e) => handleVariantChange(variantIndex, 'duration', e.target.value)}
                           className="w-full px-3 py-2 border rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
@@ -277,8 +277,8 @@ const Configure = () => {
                               onChange={(e) => handleFeatureChange(variantIndex, featureIndex, e.target.value)}
                               className="flex-1 px-3 py-2 border rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
                               placeholder="e.g., HD streaming, Multiple devices"
-                              required
-                            />
+                    required
+                  />
                             {variant.features.length > 1 && (
                               <button
                                 type="button"
@@ -333,19 +333,19 @@ const Configure = () => {
                     <div className="space-y-3">
                       {plan.variants.map((variant, index) => (
                         <div key={index} className="p-3 bg-gray-50 rounded-md">
-                          <div className="flex justify-between items-start">
-                            <div>
+                    <div className="flex justify-between items-start">
+                      <div>
                               <h4 className="font-medium text-gray-900">{variant.name}</h4>
                               <p className="text-sm text-gray-600">
                                 ${variant.price} / {variant.duration} months
-                              </p>
+                        </p>
                               {variant.isPopular && (
                                 <span className="inline-block mt-1 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
                                   Popular
                                 </span>
                               )}
-                            </div>
-                            <button className="text-red-600 hover:text-red-700">Delete</button>
+                      </div>
+                      <button className="text-red-600 hover:text-red-700">Delete</button>
                           </div>
                           <ul className="mt-2 space-y-1">
                             {variant.features.map((feature, featureIndex) => (

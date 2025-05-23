@@ -6,11 +6,11 @@ import "./App.css";
 function App() {
   return (
     <div className="flex min-h-screen bg-white">
-      <Sidebar />
-      <div className="flex-1 ml-64">
-        <Outlet />
+        <Sidebar />
+        <div className="flex-1 ml-64">
+          <Outlet />
+        </div>
       </div>
-    </div>
   );
 }
 
