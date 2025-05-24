@@ -1,11 +1,20 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useForm, FormProvider } from 'react-hook-form';
 import TopBar from '../TopBar/TopBar';
 import { campaigns, campaignStatusColors } from '../../constants/campaigns';
 import { customers } from '../../constants/customers';
+import axios from "axios";
+import urlJoin from "url-join"
+import CustomerSelectionModal from './CustomerSelectionModal';
+import ProductSelectionModal from './ProductSelectionModal';
+import CampaignStepper from './CampaignStepper';
+import EmailTemplateForm from './EmailTemplateForm';
+import CampaignCreatePage from './CampaignCreatePage';
 
 const SIDEBAR_WIDTH = '16rem';
+const EXAMPLE_MAIN_URL = window.location.origin;
+
 
 const Campaigns = () => {
   const navigate = useNavigate();
@@ -22,17 +31,23 @@ const Campaigns = () => {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [products, setProductList] = useState([]);
 
-  console.log("showCustomerModal", showCustomerModal);
-  console.log("showcreateCampaign", showCreateCampaign);
+console.log("showproductModal:", showProductModal);
 
   // State for Customer Modal
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
   const [customerSortField, setCustomerSortField] = useState('firstname');
   const [customerSortDirection, setCustomerSortDirection] = useState('asc');
   const [customerFilterVip, setCustomerFilterVip] = useState('all');
+    const { application_id, company_id } = useParams();
+  
+  // State for Product Modal
+  const [productSearchTerm, setProductSearchTerm] = useState('');
+  const [productSortField, setProductSortField] = useState('name');
+  const [productSortDirection, setProductSortDirection] = useState('asc');
 
-  const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm({
+  const methods = useForm({
     defaultValues: {
       name: '',
       description: '',
@@ -52,6 +67,52 @@ const Campaigns = () => {
     }
   });
 
+  const { register, handleSubmit, formState: { errors }, watch, setValue } = methods;
+
+  useEffect(() => {
+    isApplicationLaunch() ? fetchApplicationProducts() : fetchProducts();
+  }, [application_id]);
+
+
+  const isApplicationLaunch = () => !!application_id;
+
+
+  const fetchProducts = async () => {
+    // setPageLoading(true);
+    try {
+      const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, '/api/products'),{
+        headers: {
+          "x-company-id": company_id,
+        }
+      });
+      console.log("Fetched products:", data);
+      setProductList(data.items);
+    } catch (e) {
+      console.error("Error fetching products:", e);
+    } finally {
+      // setPageLoading(false);
+    }
+  };
+
+  const fetchApplicationProducts = async () => {
+    // setPageLoading(true);
+    try {
+      const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, `/api/products/application/${application_id}`),{
+        headers: {
+          "x-company-id": company_id,
+        }
+      });
+      console.log("Fetched application products:", data);
+      setProductList(data.items);
+    } catch (e) {
+      console.error("Error fetching application products:", e);
+    } finally {
+      // setPageLoading(false);
+    }
+  };
+
+  console.log("Products:", products);
+
   const handleSort = (field) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -67,6 +128,15 @@ const Campaigns = () => {
     } else {
       setCustomerSortField(field);
       setCustomerSortDirection('asc');
+    }
+  };
+
+  const handleProductSort = (field) => {
+    if (productSortField === field) {
+      setProductSortDirection(productSortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setProductSortField(field);
+      setProductSortDirection('asc');
     }
   };
 
@@ -107,6 +177,34 @@ const Campaigns = () => {
       return 0;
     });
 
+  const filteredAndSortedProducts = products
+    .filter(product => {
+      const searchTermLower = productSearchTerm.toLowerCase();
+      const matchesSearch = product.name.toLowerCase().includes(searchTermLower) ||
+                          product.slug.toLowerCase().includes(searchTermLower) ||
+                          product.item_code.toLowerCase().includes(searchTermLower) ||
+                          (product.brand && product.brand.name.toLowerCase().includes(searchTermLower));
+      // Add other product specific filters here if needed
+      return matchesSearch;
+    })
+    .sort((a, b) => {
+      let aValue, bValue;
+      if (productSortField === 'effective_price') {
+        aValue = a.price?.effective?.min || 0;
+        bValue = b.price?.effective?.min || 0;
+      } else if (productSortField === 'brand_name') {
+        aValue = a.brand?.name || '';
+        bValue = b.brand?.name || '';
+      } else {
+        aValue = a[productSortField];
+        bValue = b[productSortField];
+      }
+
+      if (aValue < bValue) return productSortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return productSortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
   const handleProductSelect = (productId) => {
     setSelectedProducts(prev => 
       prev.includes(productId)
@@ -123,26 +221,54 @@ const Campaigns = () => {
     );
   };
 
-  const handleSelectAllProducts = () => {
-    if (selectedProducts.length === products.length) {
-      setSelectedProducts([]);
-    } else {
-      setSelectedProducts(products.map(p => p.id));
-    }
+  const handleSelectAllProducts = (productUidsToToggle) => {
+    setSelectedProducts(prev => {
+      const allSelectedInList = productUidsToToggle.every(uid => prev.includes(uid));
+      const newSelected = new Set(prev);
+
+      if (allSelectedInList) {
+        // Deselect all in the current list
+        productUidsToToggle.forEach(uid => newSelected.delete(uid));
+      } else {
+        // Select all in the current list
+        productUidsToToggle.forEach(uid => newSelected.add(uid));
+      }
+
+      return Array.from(newSelected);
+    });
   };
 
-  const handleSelectAllCustomers = () => {
-    const currentlyDisplayedCustomerIds = filteredAndSortedCustomers.map(c => c.id);
-    const allCurrentlyDisplayedSelected = currentlyDisplayedCustomerIds.every(id => selectedCustomers.includes(id));
+  const handleSelectAllCustomers = (customerIdsToToggle) => {
+    setSelectedCustomers(prev => {
+      const allSelectedInList = customerIdsToToggle.every(id => prev.includes(id));
+      const newSelected = new Set(prev);
 
-    if (allCurrentlyDisplayedSelected) {
-      // Deselect only the ones currently displayed
-      setSelectedCustomers(prev => prev.filter(id => !currentlyDisplayedCustomerIds.includes(id)));
-    } else {
-      // Select all currently displayed that are not already selected
-      const newSelections = currentlyDisplayedCustomerIds.filter(id => !selectedCustomers.includes(id));
-      setSelectedCustomers(prev => [...prev, ...newSelections]);
-    }
+      if (allSelectedInList) {
+        // Deselect all in the current list
+        customerIdsToToggle.forEach(id => newSelected.delete(id));
+      } else {
+        // Select all in the current list
+        customerIdsToToggle.forEach(id => newSelected.add(id));
+      }
+
+      return Array.from(newSelected);
+    });
+  };
+
+  const handleIndividualProductSelect = (productId) => {
+    setSelectedProducts(prev => 
+      prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  };
+
+  const handleIndividualCustomerSelect = (customerId) => {
+    setSelectedCustomers(prev =>
+      prev.includes(customerId)
+        ? prev.filter(id => id !== customerId)
+        : [...prev, customerId]
+    );
   };
 
   const onSubmit = (data) => {
@@ -155,188 +281,25 @@ const Campaigns = () => {
     }
   };
 
-  const renderCreateCampaignPage = () => {
-    return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Create Campaign</h1>
-                <p className="mt-1 text-sm text-gray-500">Set up your new marketing campaign</p>
-              </div>
-              <button
-                onClick={() => setShowCreateCampaign(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-
-          {/* Progress Steps */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between">
-              <div className={`flex items-center ${currentStep >= 1 ? 'text-blue-600' : 'text-gray-400'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${currentStep >= 1 ? 'border-blue-600' : 'border-gray-300'}`}>
-                  1
-                </div>
-                <span className="ml-2">Campaign Details</span>
-              </div>
-              <div className="flex-1 h-0.5 mx-4 bg-gray-200">
-                <div className={`h-full ${currentStep >= 2 ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
-              </div>
-              <div className={`flex items-center ${currentStep >= 2 ? 'text-blue-600' : 'text-gray-400'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${currentStep >= 2 ? 'border-blue-600' : 'border-gray-300'}`}>
-                  2
-                </div>
-                <span className="ml-2">Email Template</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Form Content */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <form onSubmit={handleSubmit(onSubmit)}>
-              {currentStep === 1 ? (
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Campaign Name</label>
-                    <input
-                      type="text"
-                      {...register('name', { required: 'Campaign name is required' })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    />
-                    {errors.name && (
-                      <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Description</label>
-                    <textarea
-                      {...register('description', { required: 'Description is required' })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      rows="3"
-                    />
-                    {errors.description && (
-                      <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Start Date</label>
-                      <input
-                        type="date"
-                        {...register('startDate', { required: 'Start date is required' })}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      />
-                      {errors.startDate && (
-                        <p className="mt-1 text-sm text-red-600">{errors.startDate.message}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">End Date</label>
-                      <input
-                        type="date"
-                        {...register('endDate', { required: 'End date is required' })}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      />
-                      {errors.endDate && (
-                        <p className="mt-1 text-sm text-red-600">{errors.endDate.message}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Products</label>
-                    <button
-                      type="button"
-                      onClick={() => setShowProductModal(true)}
-                      className="mt-1 block w-full text-left px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      {selectedProducts.length} products selected
-                    </button>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Customers</label>
-                    <button
-                      type="button"
-                      onClick={() => setShowCustomerModal(true)}
-                      className="mt-1 block w-full text-left px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      {selectedCustomers.length} customers selected
-                    </button>
-                  </div>
-
-                  <div className="flex justify-end space-x-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowCreateCampaign(false)}
-                      className="px-4 py-2 text-gray-700 hover:text-gray-900"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Email Subject</label>
-                    <input
-                      type="text"
-                      {...register('emailTemplate.subject', { required: 'Subject is required' })}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    />
-                    {errors.emailTemplate?.subject && (
-                      <p className="mt-1 text-sm text-red-600">{errors.emailTemplate.subject.message}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Email Content</label>
-                    <div className="mt-1 border rounded-md p-4 bg-gray-50">
-                      <div dangerouslySetInnerHTML={{ __html: watch('emailTemplate.content') }} />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end space-x-3">
-                    <button
-                      type="button"
-                      onClick={() => setCurrentStep(1)}
-                      className="px-4 py-2 text-gray-700 hover:text-gray-900"
-                    >
-                      Back
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                    >
-                      Create Campaign
-                    </button>
-                  </div>
-                </div>
-              )}
-            </form>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
       {showCreateCampaign ? (
-        renderCreateCampaignPage()
+        <CampaignCreatePage
+          currentStep={currentStep}
+          setCurrentStep={setCurrentStep}
+          setShowCreateCampaign={setShowCreateCampaign}
+          setShowProductModal={setShowProductModal}
+          setShowCustomerModal={setShowCustomerModal}
+          selectedProducts={selectedProducts}
+          selectedCustomers={selectedCustomers}
+          methods={methods}
+          onSubmit={handleSubmit(onSubmit)}
+          errors={errors}
+          watch={watch}
+          register={register}
+          handleIndividualProductSelect={handleIndividualProductSelect}
+          handleIndividualCustomerSelect={handleIndividualCustomerSelect}
+        />
       ) : (
         <div>
           {/* Campaigns List */}
@@ -494,85 +457,6 @@ const Campaigns = () => {
             </button>
           </div>
 
-          {/* Product Selection Modal */}
-          {showProductModal && (
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
-              <div className="bg-white rounded-lg max-w-4xl w-full">
-                <div className="p-6">
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold">Select Products</h2>
-                    <button
-                      onClick={() => setShowProductModal(false)}
-                      className="text-gray-500 hover:text-gray-700"
-                    >
-                      ×
-                    </button>
-                  </div>
-
-                  <div className="mb-4">
-                    <input
-                      type="text"
-                      placeholder="Search products..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-md"
-                    />
-                  </div>
-
-                  <div className="mb-4">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedProducts.length === products.length}
-                        onChange={handleSelectAllProducts}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="ml-2">Select All</span>
-                    </label>
-                  </div>
-
-                  <div className="max-h-96 overflow-y-auto">
-                    {isLoading ? (
-                      <div className="space-y-4">
-                        {[...Array(5)].map((_, i) => (
-                          <div key={i} className="animate-pulse">
-                            <div className="h-12 bg-gray-200 rounded"></div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {products.map((product) => (
-                          <label
-                            key={product.id}
-                            className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedProducts.includes(product.id)}
-                              onChange={() => handleProductSelect(product.id)}
-                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            <span className="ml-2">{product.name}</span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-6 flex justify-end">
-                    <button
-                      onClick={() => setShowProductModal(false)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                    >
-                      Done
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Email Template Modal */}
           {showEmailTemplate && selectedCampaign && (
             <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
@@ -626,129 +510,40 @@ const Campaigns = () => {
         </div>
       )}
 
-                {/* Customer Selection Modal */}
-                {showCustomerModal && (
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-lg max-w-4xl w-full">
-                <div className="p-6">
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold">Select Customers</h2>
-                    <button
-                      onClick={() => setShowCustomerModal(false)}
-                      className="text-gray-500 hover:text-gray-700"
-                    >
-                      ×
-                    </button>
-                  </div>
+      {/* Customer Selection Modal */}
+      <CustomerSelectionModal
+        showModal={showCustomerModal}
+        onClose={() => setShowCustomerModal(false)}
+        selectedCustomers={selectedCustomers}
+        onCustomerSelect={handleIndividualCustomerSelect}
+        onSelectAllCustomers={() => handleSelectAllCustomers(filteredAndSortedCustomers.map(c => c.id))}
+        customers={filteredAndSortedCustomers}
+        customerSearchTerm={customerSearchTerm}
+        setCustomerSearchTerm={setCustomerSearchTerm}
+        customerSortField={customerSortField}
+        setCustomerSortField={setCustomerSortField}
+        customerSortDirection={customerSortDirection}
+        setCustomerSortDirection={setCustomerSortDirection}
+        customerFilterVip={customerFilterVip}
+        setCustomerFilterVip={setCustomerFilterVip}
+      />
 
-                  {/* Search, Filter, and Sort Controls */}
-                  <div className="mb-4 space-y-4">
-                    <input
-                      type="text"
-                      placeholder="Search customers..."
-                      value={customerSearchTerm}
-                      onChange={(e) => setCustomerSearchTerm(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                    <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-gray-500">
-                      <span>Filter by:</span>
-                      <select
-                        value={customerFilterVip}
-                        onChange={(e) => setCustomerFilterVip(e.target.value)}
-                        className="px-3 py-2 border rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="all">All Customers</option>
-                        <option value="vip">VIP Customers ( 75% VIP Ratio)</option>
-                        <option value="non-vip">Non-VIP Customers ( 75% VIP Ratio)</option>
-                      </select>
-                      <span className="ml-auto sm:ml-0">Sort by:</span>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleCustomerSort('firstname')}
-                          className={`hover:text-blue-600 ${customerSortField === 'firstname' ? 'text-blue-600' : ''}`}
-                        >
-                          First Name {customerSortField === 'firstname' && (customerSortDirection === 'asc' ? '↑' : '↓')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleCustomerSort('lastname')}
-                          className={`hover:text-blue-600 ${customerSortField === 'lastname' ? 'text-blue-600' : ''}`}
-                        >
-                          Last Name {customerSortField === 'lastname' && (customerSortDirection === 'asc' ? '↑' : '↓')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleCustomerSort('vipRatio')}
-                          className={`hover:text-blue-600 ${customerSortField === 'vipRatio' ? 'text-blue-600' : ''}`}
-                        >
-                          VIP Ratio {customerSortField === 'vipRatio' && (customerSortDirection === 'asc' ? '↑' : '↓')}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Select All Checkbox */}
-                  <div className="mb-4">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={filteredAndSortedCustomers.length > 0 && filteredAndSortedCustomers.every(c => selectedCustomers.includes(c.id))}
-                        onChange={handleSelectAllCustomers}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="ml-2">Select All</span>
-                    </label>
-                  </div>
-
-                  {/* Customer List */}
-                  <div className="max-h-96 overflow-y-auto border rounded-md">
-                    {isLoading ? (
-                      <div className="p-4 space-y-4">
-                        {[...Array(5)].map((_, i) => (
-                          <div key={i} className="animate-pulse">
-                            <div className="h-8 bg-gray-200 rounded"></div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : filteredAndSortedCustomers.length > 0 ? (
-                      <div className="divide-y divide-gray-200">
-                        {filteredAndSortedCustomers.map((customer) => (
-                          <label
-                            key={customer.id}
-                            className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedCustomers.includes(customer.id)}
-                              onChange={() => handleCustomerSelect(customer.id)}
-                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            <span className="ml-3 text-sm text-gray-900 flex-1">{customer.firstname} {customer.lastname} ({customer.email})</span>
-                            <span className="text-sm text-gray-600">VIP Ratio: {customer.vipRatio}%</span>
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="p-4 text-center text-gray-500">
-                        No customers found matching your criteria.
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-6 flex justify-end">
-                    <button
-                      onClick={() => setShowCustomerModal(false)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                    >
-                      Done ({selectedCustomers.length} selected)
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
+      {/* Product Selection Modal */}
+      <ProductSelectionModal
+        showModal={showProductModal}
+        onClose={() => setShowProductModal(false)}
+        selectedProducts={selectedProducts}
+        onProductSelect={handleIndividualProductSelect}
+        onSelectAllProducts={() => handleSelectAllProducts(filteredAndSortedProducts.map(p => p.uid))}
+        products={filteredAndSortedProducts}
+        isLoading={isLoading}
+        productSearchTerm={productSearchTerm}
+        setProductSearchTerm={setProductSearchTerm}
+        productSortField={productSortField}
+        setProductSortField={setProductSortField}
+        productSortDirection={productSortDirection}
+        setProductSortDirection={setProductSortDirection}
+      />
     </div>
   );
 };
