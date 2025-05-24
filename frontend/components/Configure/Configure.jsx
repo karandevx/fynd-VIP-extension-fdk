@@ -4,16 +4,21 @@ const Configure = () => {
   const [activeTab, setActiveTab] = useState('membership');
   const [membershipPlans, setMembershipPlans] = useState([]);
   const [inputPages, setInputPages] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortField, setSortField] = useState('name');
+  const [sortDirection, setSortDirection] = useState('asc');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [newPlan, setNewPlan] = useState({
     name: '',
     description: '',
     variants: [
       {
-    name: '',
-    price: '',
-    duration: '',
+        name: '',
+        price: '',
+        duration: '',
         features: [''],
-        isPopular: false
+        isPopular: false,
+        media: null
       }
     ]
   });
@@ -36,7 +41,8 @@ const Configure = () => {
           price: '',
           duration: '',
           features: [''],
-          isPopular: false
+          isPopular: false,
+          media: null
         }
       ]
     });
@@ -89,6 +95,24 @@ const Configure = () => {
     });
   };
 
+  const handleMediaUpload = (variantIndex, event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        handleVariantChange(variantIndex, 'media', {
+          file,
+          preview: reader.result
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveMedia = (variantIndex) => {
+    handleVariantChange(variantIndex, 'media', null);
+  };
+
   const handleAddPlan = (e) => {
     e.preventDefault();
     setMembershipPlans([...membershipPlans, { ...newPlan, id: Date.now() }]);
@@ -101,7 +125,8 @@ const Configure = () => {
           price: '',
           duration: '',
           features: [''],
-          isPopular: false
+          isPopular: false,
+          media: null
         }
       ]
     });
@@ -118,6 +143,42 @@ const Configure = () => {
       js: ''
     });
   };
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const filteredAndSortedPlans = membershipPlans
+    .filter(plan => {
+      const matchesSearch = plan.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          plan.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesFilter = filterStatus === 'all' || 
+                          (filterStatus === 'popular' && plan.variants.some(v => v.isPopular));
+      return matchesSearch && matchesFilter;
+    })
+    .sort((a, b) => {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
+      const modifier = sortDirection === 'asc' ? 1 : -1;
+      return aValue > bValue ? modifier : -modifier;
+    });
+
+  const filteredAndSortedPages = inputPages
+    .filter(page => {
+      return page.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+             page.slug.toLowerCase().includes(searchTerm.toLowerCase());
+    })
+    .sort((a, b) => {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
+      const modifier = sortDirection === 'asc' ? 1 : -1;
+      return aValue > bValue ? modifier : -modifier;
+    });
 
   return (
     <div className="p-6 min-h-screen bg-gray-50">
@@ -246,10 +307,10 @@ const Configure = () => {
                         </div>
                       </div>
 
-                <div>
+                      <div>
                         <label className="block text-sm font-medium mb-1 text-gray-700">Duration (months)</label>
-                  <input
-                    type="number"
+                        <input
+                          type="number"
                           value={variant.duration}
                           onChange={(e) => handleVariantChange(variantIndex, 'duration', e.target.value)}
                           className="w-full px-3 py-2 border rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
@@ -277,8 +338,8 @@ const Configure = () => {
                               onChange={(e) => handleFeatureChange(variantIndex, featureIndex, e.target.value)}
                               className="flex-1 px-3 py-2 border rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
                               placeholder="e.g., HD streaming, Multiple devices"
-                    required
-                  />
+                              required
+                            />
                             {variant.features.length > 1 && (
                               <button
                                 type="button"
@@ -304,6 +365,56 @@ const Configure = () => {
                           Mark as Popular
                         </label>
                       </div>
+
+                      {/* Media Upload Section */}
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium mb-2 text-gray-700">Plan Image</label>
+                        <div className="flex items-center space-x-4">
+                          {variant.media ? (
+                            <div className="relative">
+                              <img
+                                src={variant.media.preview}
+                                alt="Plan preview"
+                                className="h-24 w-24 object-cover rounded-lg"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveMedia(variantIndex)}
+                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg">
+                              <label className="cursor-pointer">
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => handleMediaUpload(variantIndex, e)}
+                                  className="hidden"
+                                />
+                                <div className="text-center">
+                                  <svg
+                                    className="mx-auto h-8 w-8 text-gray-400"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                                    />
+                                  </svg>
+                                  <span className="mt-1 block text-xs text-gray-500">Upload</span>
+                                </div>
+                              </label>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -319,9 +430,45 @@ const Configure = () => {
 
             {/* Existing Plans */}
             <div className="p-6 rounded-lg bg-white shadow-sm">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900">Existing Plans</h2>
+              <div className="mb-6 space-y-4">
+                <div className="flex items-center space-x-4">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      placeholder="Search plans..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="px-3 py-2 border rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="all">All Plans</option>
+                    <option value="popular">Popular Plans</option>
+                  </select>
+                </div>
+                <div className="flex items-center space-x-4 text-sm text-gray-500">
+                  <span>Sort by:</span>
+                  <button
+                    onClick={() => handleSort('name')}
+                    className={`hover:text-blue-600 ${sortField === 'name' ? 'text-blue-600' : ''}`}
+                  >
+                    Name {sortField === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </button>
+                  <button
+                    onClick={() => handleSort('price')}
+                    className={`hover:text-blue-600 ${sortField === 'price' ? 'text-blue-600' : ''}`}
+                  >
+                    Price {sortField === 'price' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </button>
+                </div>
+              </div>
+
               <div className="space-y-6">
-                {membershipPlans.map((plan) => (
+                {filteredAndSortedPlans.map((plan) => (
                   <div
                     key={plan.id}
                     className="p-4 rounded-lg border border-gray-200"
@@ -333,19 +480,19 @@ const Configure = () => {
                     <div className="space-y-3">
                       {plan.variants.map((variant, index) => (
                         <div key={index} className="p-3 bg-gray-50 rounded-md">
-                    <div className="flex justify-between items-start">
-                      <div>
+                          <div className="flex justify-between items-start">
+                            <div>
                               <h4 className="font-medium text-gray-900">{variant.name}</h4>
                               <p className="text-sm text-gray-600">
                                 ${variant.price} / {variant.duration} months
-                        </p>
+                              </p>
                               {variant.isPopular && (
                                 <span className="inline-block mt-1 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
                                   Popular
                                 </span>
                               )}
-                      </div>
-                      <button className="text-red-600 hover:text-red-700">Delete</button>
+                            </div>
+                            <button className="text-red-600 hover:text-red-700">Delete</button>
                           </div>
                           <ul className="mt-2 space-y-1">
                             {variant.features.map((feature, featureIndex) => (
@@ -360,9 +507,9 @@ const Configure = () => {
                     </div>
                   </div>
                 ))}
-                {membershipPlans.length === 0 && (
+                {filteredAndSortedPlans.length === 0 && (
                   <p className="text-gray-500 text-center py-4">
-                    No membership plans created yet
+                    No membership plans found
                   </p>
                 )}
               </div>
@@ -443,9 +590,37 @@ const Configure = () => {
 
             {/* Existing Input Pages */}
             <div className="p-6 rounded-lg bg-white shadow-sm">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900">Existing Input Pages</h2>
+              <div className="mb-6 space-y-4">
+                <div className="flex items-center space-x-4">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      placeholder="Search pages..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center space-x-4 text-sm text-gray-500">
+                  <span>Sort by:</span>
+                  <button
+                    onClick={() => handleSort('title')}
+                    className={`hover:text-blue-600 ${sortField === 'title' ? 'text-blue-600' : ''}`}
+                  >
+                    Title {sortField === 'title' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </button>
+                  <button
+                    onClick={() => handleSort('slug')}
+                    className={`hover:text-blue-600 ${sortField === 'slug' ? 'text-blue-600' : ''}`}
+                  >
+                    Slug {sortField === 'slug' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </button>
+                </div>
+              </div>
+
               <div className="space-y-4">
-                {inputPages.map((page) => (
+                {filteredAndSortedPages.map((page) => (
                   <div
                     key={page.id}
                     className="p-4 rounded-lg border border-gray-200"
@@ -473,9 +648,9 @@ const Configure = () => {
                     </div>
                   </div>
                 ))}
-                {inputPages.length === 0 && (
+                {filteredAndSortedPages.length === 0 && (
                   <p className="text-gray-500 text-center py-4">
-                    No input pages created yet
+                    No input pages found
                   </p>
                 )}
               </div>
