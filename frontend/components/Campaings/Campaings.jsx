@@ -319,31 +319,31 @@ console.log("showproductModal:", showProductModal);
                   <select
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value)}
-                    className="px-3 py-2 border rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                    className="px-3 py-2 border cursor-pointer rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="all">All Status</option>
-                    <option value="draft">Draft</option>
-                    <option value="active">Active</option>
-                    <option value="completed">Completed</option>
-                    <option value="paused">Paused</option>
+                    <option className='hover:cursor-pointer' value="all">All Status</option>
+                    <option className='hover:cursor-pointer' value="draft">Draft</option>
+                    <option className='hover:cursor-pointer' value="active">Active</option>
+                    <option className='hover:cursor-pointer' value="completed">Completed</option>
+                    <option className='hover:cursor-pointer' value="paused">Paused</option>
                   </select>
                   <div className="flex items-center space-x-2 text-sm text-gray-500">
                     <span>Sort by:</span>
                     <button
                       onClick={() => handleSort('name')}
-                      className={`hover:text-blue-600 ${sortField === 'name' ? 'text-blue-600' : ''}`}
+                      className={`hover:text-blue-600 hover:cursor-pointer ${sortField === 'name' ? 'text-blue-600' : ''}`}
                     >
                       Name {sortField === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
                     </button>
                     <button
                       onClick={() => handleSort('startDate')}
-                      className={`hover:text-blue-600 ${sortField === 'startDate' ? 'text-blue-600' : ''}`}
+                      className={`hover:text-blue-600 hover:cursor-pointer ${sortField === 'startDate' ? 'text-blue-600' : ''}`}
                     >
                       Start Date {sortField === 'startDate' && (sortDirection === 'asc' ? '↑' : '↓')}
                     </button>
                     <button
                       onClick={() => handleSort('status')}
-                      className={`hover:text-blue-600 ${sortField === 'status' ? 'text-blue-600' : ''}`}
+                      className={`hover:text-blue-600 hover:cursor-pointer ${sortField === 'status' ? 'text-blue-600' : ''}`}
                     >
                       Status {sortField === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
                     </button>

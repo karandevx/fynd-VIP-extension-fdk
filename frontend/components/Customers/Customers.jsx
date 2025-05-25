@@ -174,9 +174,9 @@ export const Customers = () => {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
       <div className="mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl text-center w-full font-extrabold text-gray-900 tracking-tight">
+          <h1 className="!text-2xl text-center w-full font-extrabold text-gray-900 tracking-tight">
             Customer Management
-            <span className="block text-xl tracking-normal font-medium text-gray-500 mt-1">
+            <span className="block !text-xl tracking-normal font-medium text-gray-500 mt-1">
               {filteredCustomers.length} total customers
             </span>
           </h1>

@@ -6,7 +6,11 @@ const EmailTemplateForm = ({ setCurrentStep }) => {
 
   // Placeholder function for regeneration
   const handleRegenerate = () => {
-    console.log('Regenerate CTA and Preview clicked');
+    const emailData = watch('emailTemplate');
+    console.log('Email Template Regeneration:', {
+      emailData,
+      timestamp: new Date().toISOString()
+    });
     // TODO: Implement regeneration logic
   };
 

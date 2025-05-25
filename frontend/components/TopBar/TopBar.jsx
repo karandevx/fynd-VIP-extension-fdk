@@ -12,7 +12,7 @@ const TopBar = ({ title, showBackButton = false }) => {
             {showBackButton && (
               <button
                 onClick={() => navigate(-1)}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 flex items-center justify-center"
+                className="p-2 rounded-lg hover:cursor-pointer hover:bg-gray-100 transition-colors duration-200 flex items-center justify-center"
                 aria-label="Go back"
               >
                 <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -24,7 +24,7 @@ const TopBar = ({ title, showBackButton = false }) => {
           </div>
           <div className="flex items-center space-x-3">
             <button 
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 relative"
+              className="p-2 hover:cursor-pointer rounded-lg hover:bg-gray-100 transition-colors duration-200 relative"
               aria-label="Notifications"
             >
               <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -33,7 +33,7 @@ const TopBar = ({ title, showBackButton = false }) => {
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
             </button>
             <button 
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+              className="p-2 hover:cursor-pointer rounded-lg hover:bg-gray-100 transition-colors duration-200"
               aria-label="Settings"
             >
               <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -43,7 +43,7 @@ const TopBar = ({ title, showBackButton = false }) => {
             </button>
             <div className="h-6 w-px bg-gray-200 mx-2"></div>
             <button 
-              className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+              className="flex hover:cursor-pointer items-center space-x-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
               aria-label="User profile"
             >
               <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium">

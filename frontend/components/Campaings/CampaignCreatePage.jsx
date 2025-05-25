@@ -55,10 +55,21 @@ const CampaignCreatePage = ({
 
     // If all validations pass
     if (currentStep === 1) {
+      console.log('Campaign Details Step:', {
+        campaignData: data,
+        selectedProducts,
+        selectedCustomers,
+        timestamp: new Date().toISOString()
+      });
       setCurrentStep(2);
     } else {
       // Handle final submission
-      console.log('Form submitted:', data);
+      console.log('Campaign Creation Complete:', {
+        campaignData: data,
+        selectedProducts,
+        selectedCustomers,
+        timestamp: new Date().toISOString()
+      });
       setShowCreateCampaign(false);
     }
   };
