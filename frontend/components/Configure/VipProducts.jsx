@@ -11,7 +11,7 @@ const VipProducts = ({ initialProducts = [], applicationIds = [], companyId }) =
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const EXAMPLE_MAIN_URL = window.location.origin;
-  const isConfigured = initialProducts.length > 0;
+  const isConfigured = initialProducts?.length > 0;
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -53,7 +53,7 @@ const VipProducts = ({ initialProducts = [], applicationIds = [], companyId }) =
 
   const handleSelectAll = () => {
     if (isConfigured) return;
-    if (selectedProducts.length === productList.length) {
+    if (selectedProducts?.length === productList?.length) {
       setSelectedProducts([]);
     } else {
       setSelectedProducts(productList.map(product => product.uid));
@@ -62,7 +62,7 @@ const VipProducts = ({ initialProducts = [], applicationIds = [], companyId }) =
 
   const handleSave = async () => {
     if (isConfigured) return;
-    if (selectedProducts.length === 0) {
+    if (selectedProducts?.length === 0) {
       toast.warning('Please select at least one product');
       return;
     }
@@ -118,7 +118,7 @@ const VipProducts = ({ initialProducts = [], applicationIds = [], companyId }) =
             </span>
           )}
           <span className="px-3 py-1 text-sm font-medium bg-blue-100 text-blue-800 rounded-full">
-            {selectedProducts.length} {selectedProducts.length === 1 ? 'Product' : 'Products'} Selected
+            {selectedProducts?.length} {selectedProducts?.length === 1 ? 'Product' : 'Products'} Selected
           </span>
         </div>
         {!isConfigured && (
@@ -127,7 +127,7 @@ const VipProducts = ({ initialProducts = [], applicationIds = [], companyId }) =
               onClick={handleSelectAll}
               className="text-blue-600 hover:text-blue-700 text-sm font-medium"
             >
-              {selectedProducts.length === productList.length ? 'Deselect All' : 'Select All'}
+              {selectedProducts?.length === productList?.length ? 'Deselect All' : 'Select All'}
             </button>
             <button
               onClick={handleSave}
@@ -136,7 +136,7 @@ const VipProducts = ({ initialProducts = [], applicationIds = [], companyId }) =
                 saving ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
               }`}
             >
-              {saving ? 'Saving...' : `Save Selection (${selectedProducts.length})`}
+              {saving ? 'Saving...' : `Save Selection (${selectedProducts?.length})`}
             </button>
           </div>
         )}
@@ -167,7 +167,7 @@ const VipProducts = ({ initialProducts = [], applicationIds = [], companyId }) =
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {productList.length === 0 ? (
+              {productList?.length === 0 ? (
                 <tr>
                   <td colSpan={isConfigured ? "4" : "5"} className="px-6 py-4 text-center text-gray-500">
                     No products found
@@ -175,7 +175,7 @@ const VipProducts = ({ initialProducts = [], applicationIds = [], companyId }) =
                 </tr>
               ) : (
                 productList
-                  .sort((a, b) => {
+                  ?.sort((a, b) => {
                     // Sort selected products to the top
                     const aSelected = selectedProducts.includes(a.uid);
                     const bSelected = selectedProducts.includes(b.uid);
@@ -194,7 +194,7 @@ const VipProducts = ({ initialProducts = [], applicationIds = [], companyId }) =
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10">
-                            {product.images && product.images.length > 0 ? (
+                            {product.images && product.images?.length > 0 ? (
                               <img
                                 src={product.images[0].url}
                                 alt={product.name}

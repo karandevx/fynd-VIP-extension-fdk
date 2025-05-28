@@ -4,9 +4,12 @@
   "private": true,
   "dependencies": {
     "@gofynd/fdk-client-javascript": "^1.4.13",
+    "@pixelbin/core": "^7.0.0",
     "@tailwindcss/vite": "^4.1.7",
     "axios": "^1.2.1",
     "cookie-parser": "^1.4.6",
+    "i": "^0.3.7",
+    "npm": "^11.4.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.56.4",

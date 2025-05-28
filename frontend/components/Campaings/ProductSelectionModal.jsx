@@ -17,7 +17,7 @@ const ProductSelectionModal = ({
 }) => {
   if (!showModal) return null;
 
-  const allVisibleSelected = products.length > 0 && products.every(p => selectedProducts.includes(p.uid));
+  const allVisibleSelected = products?.length > 0 && products.every(p => selectedProducts?.includes(p?.uid));
 
   const handleProductSort = (field) => {
     if (productSortField === field) {
@@ -86,7 +86,7 @@ const ProductSelectionModal = ({
                 onChange={() => onSelectAllProducts(products.map(p => p.uid))}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-              <span className="ml-2">{`Select All (${products.length} visible)`}</span>
+              <span className="ml-2">{`Select All (${products?.length} visible)`}</span>
             </label>
           </div>
 
@@ -99,7 +99,7 @@ const ProductSelectionModal = ({
                   </div>
                 ))}
               </div>
-            ) : products.length > 0 ? (
+            ) : products?.length > 0 ? (
               <div className="divide-y divide-gray-200">
                 {products.map((product) => (
                   <label
@@ -113,7 +113,7 @@ const ProductSelectionModal = ({
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <div className="ml-3 text-sm text-gray-900 flex-1 flex items-center">
-                      {product.images && product.images.length > 0 && (
+                      {product.images && product.images?.length > 0 && (
                         <img
                           src={product.images[0].url}
                           alt={product.name}
@@ -143,7 +143,7 @@ const ProductSelectionModal = ({
               onClick={onClose}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
-              Done ({selectedProducts.length} selected)
+              Done ({selectedProducts?.length} selected)
             </button>
           </div>
         </div>

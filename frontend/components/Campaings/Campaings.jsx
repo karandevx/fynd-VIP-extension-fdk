@@ -172,7 +172,7 @@ console.log("showproductModal:", showProductModal);
   };
 
   const filteredAndSortedCampaigns = campaigns
-    .filter(campaign => {
+    ?.filter(campaign => {
       const matchesSearch = campaign?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           campaign?.description.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesFilter = filterStatus === 'all' || campaign?.status === filterStatus;
@@ -186,7 +186,7 @@ console.log("showproductModal:", showProductModal);
     });
 
   const filteredAndSortedCustomers = customers
-    .filter(customer => {
+    ?.filter(customer => {
       const searchTermLower = customerSearchTerm.toLowerCase();
       const matchesSearch = customer.firstname.toLowerCase().includes(searchTermLower) ||
                           customer.lastname.toLowerCase().includes(searchTermLower) ||
@@ -209,7 +209,7 @@ console.log("showproductModal:", showProductModal);
     });
 
   const filteredAndSortedProducts = products
-    .filter(product => {
+    ?.filter(product => {
       const searchTermLower = productSearchTerm.toLowerCase();
       const matchesSearch = product.name.toLowerCase().includes(searchTermLower) ||
                           product.slug.toLowerCase().includes(searchTermLower) ||
@@ -239,7 +239,7 @@ console.log("showproductModal:", showProductModal);
   const handleProductSelect = (productId) => {
     setSelectedProducts(prev => 
       prev.includes(productId)
-        ? prev.filter(id => id !== productId)
+        ? prev?.filter(id => id !== productId)
         : [...prev, productId]
     );
   };
@@ -247,7 +247,7 @@ console.log("showproductModal:", showProductModal);
   const handleCustomerSelect = (customerId) => {
     setSelectedCustomers(prev =>
       prev.includes(customerId)
-        ? prev.filter(id => id !== customerId)
+        ? prev?.filter(id => id !== customerId)
         : [...prev, customerId]
     );
   };
@@ -289,7 +289,7 @@ console.log("showproductModal:", showProductModal);
   const handleIndividualProductSelect = (productId) => {
     setSelectedProducts(prev => 
       prev.includes(productId)
-        ? prev.filter(id => id !== productId)
+        ? prev?.filter(id => id !== productId)
         : [...prev, productId]
     );
   };
@@ -297,7 +297,7 @@ console.log("showproductModal:", showProductModal);
   const handleIndividualCustomerSelect = (customerId) => {
     setSelectedCustomers(prev =>
       prev.includes(customerId)
-        ? prev.filter(id => id !== customerId)
+        ? prev?.filter(id => id !== customerId)
         : [...prev, customerId]
     );
   };
@@ -306,7 +306,7 @@ console.log("showproductModal:", showProductModal);
   const handleIndividualSalesChannelSelect = (channelId) => {
     setSelectedSaleschannels(prev =>
       prev.includes(channelId)
-        ? prev.filter(id => id !== channelId)
+        ? prev?.filter(id => id !== channelId)
         : [...prev, channelId]
     );
   };
@@ -318,7 +318,7 @@ console.log("showproductModal:", showProductModal);
       }
       const allAreCurrentlySelected = channelIdsToToggle.every(id => prev.includes(id));
       if (allAreCurrentlySelected) {
-        return prev.filter(id => !channelIdsToToggle.includes(id));
+        return prev?.filter(id => !channelIdsToToggle.includes(id));
       } else {
         const newSelected = new Set(prev);
         channelIdsToToggle.forEach(id => newSelected.add(id));
@@ -498,12 +498,29 @@ console.log("showproductModal:", showProductModal);
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <button
-                            onClick={() => {
-                              // Need to adjust this to handle new data structure if viewing is needed
-                              // For now, no action on View
+                            onClick={async () => {
+                              setIsLoading(true);
+                              try {
+                                const response = await axios.post('https://create-campaign-af13fce1.serverless.boltic.app', {
+                                  type: 'send_email',
+                                  companyId: company_id,
+                                  campaignId: campaign._id
+                                }, {
+                                  headers: { 'Content-Type': 'application/json' }
+                                });
+                                if (response.data.success) {
+                                  toast.success('Email sent successfully!');
+                                } else {
+                                  throw new Error(response.data.message || 'Failed to send email');
+                                }
+                              } catch (error) {
+                                toast.error(`Error sending email: ${error.message}`);
+                              } finally {
+                                setIsLoading(false);
+                              }
                             }}
                             className="text-blue-600 hover:text-blue-900 cursor-pointer mr-4"
-                            disabled={true}
+                            disabled={isLoading}
                           >
                             Send Email
                           </button>

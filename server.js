@@ -7,8 +7,15 @@ const serveStatic = require("serve-static");
 const { readFileSync } = require('fs');
 const { setupFdk } = require("@gofynd/fdk-extension-javascript/express");
 const { SQLiteStorage } = require("@gofynd/fdk-extension-javascript/express/storage");
+const { PixelbinConfig, PixelbinClient } = require("@pixelbin/admin");
 const sqliteInstance = new sqlite3.Database('session_storage.db');
 const productRouter = express.Router();
+const pixelBinRouter = express.Router();
+const fs = require("fs");
+const multer = require('multer');
+const upload = multer();
+require('dotenv').config();
+
 
 
 const fdkExtension = setupFdk({
@@ -43,6 +50,13 @@ const fdkExtension = setupFdk({
         }
     },
 });
+
+const config = new PixelbinConfig({
+  domain: "https://api.pixelbin.io",
+  apiSecret: process.env.PIXELBIN_API_SECRET,
+});
+
+const pixelbin = new PixelbinClient(config);
 
 const STATIC_PATH = process.env.NODE_ENV === 'production'
     ? path.join(process.cwd(), 'frontend', 'public' , 'dist')
@@ -118,6 +132,8 @@ productRouter.get('/', async function view(req, res, next) {
 productRouter.get('/vip-products', async function view(req, res, next) {
     try {
       const { platformClient } = req;
+
+      
   
       let allVipProducts = [];
       let pageNo = 1;
@@ -148,8 +164,6 @@ productRouter.get('/vip-products', async function view(req, res, next) {
     }
 });
   
-  
-
 // Get products list for application
 productRouter.get('/application/:application_id', async function view(req, res, next) {
     try {
@@ -164,8 +178,42 @@ productRouter.get('/application/:application_id', async function view(req, res, 
     }
 });
 
+pixelBinRouter.post('/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+    const { originalname, buffer } = req.file;
+    const ext = originalname.split('.').pop();
+    const baseName = originalname.replace(/\.[^/.]+$/, "");
+    const uniqueName = `${baseName}-${Date.now()}`;
+    const result = await pixelbin.uploader.upload({
+      file: buffer,
+      name: uniqueName,
+      path: "vip-extension", // or any folder you want
+      format: ext,
+      tags: [],
+      metadata: {},
+      overwrite: false,
+      filenameOverride: false,
+      access: "public-read",
+      uploadOptions: {
+        chunkSize: 2 * 1024 * 1024,
+        concurrency: 2,
+        maxRetries: 1,
+        exponentialFactor: 1,
+      }
+    });
+    res.status(200).json({ success: true, url: result.url, result });
+  } catch (error) {
+    console.error('Error uploading to Pixelbin:', error);
+    res.status(500).json({ success: false, message: 'Failed to upload to Pixelbin' });
+  }
+});
+
 // FDK extension api route which has auth middleware and FDK client instance attached to it.
 platformApiRoutes.use('/products', productRouter);
+platformApiRoutes.use('/pixelbin', pixelBinRouter);
 
 // If you are adding routes outside of the /api path, 
 // remember to also add a proxy rule for them in /frontend/vite.config.js
@@ -178,5 +226,7 @@ app.get('*', (req, res) => {
     .set("Content-Type", "text/html")
     .send(readFileSync(path.join(STATIC_PATH, "index.html")));
 });
+
+
 
 module.exports = app;
