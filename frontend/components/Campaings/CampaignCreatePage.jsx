@@ -38,6 +38,7 @@ const CampaignCreatePage = ({
   const [productError, setProductError] = useState('');
   const [customerError, setCustomerError] = useState(''); // Keep name for error message consistency
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [campaignId, setCampaignId] = useState(null);
 
   // Update handlers to use selectedSaleschannels
   const handleIndividualSalesChannelSelect = (channelId) => {
@@ -129,14 +130,13 @@ const CampaignCreatePage = ({
         });
 
         console.log("Campaign creation response:", response.data);
-
-        if (response.data.success) {
-          toast.success('Campaign details saved successfully!'); // Update toast message
-          setCurrentStep(2); // Move to the next step on success
+        if (response.data.success && response.data.data) {
+          setCampaignId(response.data.data);
+          toast.success('Campaign details saved successfully!');
+          setCurrentStep(2);
         } else {
-          throw new Error(response.data.message || 'Failed to save campaign details'); // Update error message
+          throw new Error(response.data.message || 'Failed to save campaign details');
         }
-
       } catch (error) {
         console.error('Error saving campaign details:', error);
         toast.error(`Error saving campaign details: ${error.message}`); // Update toast message
@@ -248,7 +248,17 @@ const CampaignCreatePage = ({
                       <input
                         type="date"
                         id="startDate"
-                        {...register('startDate', { required: 'Start date is required' })}
+                        min={new Date().toISOString().split('T')[0]}
+                        {...register('startDate', {
+                          required: 'Start date is required',
+                          validate: value => {
+                            const today = new Date();
+                            today.setHours(0,0,0,0);
+                            const selected = new Date(value);
+                            selected.setHours(0,0,0,0);
+                            return selected >= today || 'Start date cannot be in the past';
+                          }
+                        })}
                         className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       />
                       {errors.startDate && (
@@ -292,7 +302,17 @@ const CampaignCreatePage = ({
                       <input
                         type="number"
                         id="discountValue"
-                        {...register('discount.value', { required: 'Discount value is required', min: { value: 0, message: 'Discount value must be positive' } })}
+                        {...register('discount.value', {
+                          required: 'Discount value is required',
+                          min: { value: 0, message: 'Discount value must be positive' },
+                          validate: (value) => {
+                            const type = watch('discount.type');
+                            if (type === 'percentage' && (value < 0 || value > 100)) {
+                              return 'Percentage discount must be between 0 and 100';
+                            }
+                            return true;
+                          },
+                        })}
                         className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         step="any"
                       />
@@ -318,7 +338,7 @@ const CampaignCreatePage = ({
                       <input
                         type="number"
                         id="preLaunchDays"
-                        {...register('preLaunchDays', { valueAsNumber: true, min: { value: 0, message: 'Pre-launch days must be non-negative' } })}
+                        {...register('preLaunchDays', { valueAsNumber: true, min: { value: 1, message: 'Pre-launch days must be positive' } })}
                         className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         defaultValue={0}
                       />
@@ -380,27 +400,9 @@ const CampaignCreatePage = ({
                   register={register}
                   errors={errors}
                   watch={watch}
+                  campaignId={campaignId}
+                  companyId={company_id}
                 />
-              )}
-
-              {/* Submit button for Step 2 (Email Template) - Hidden in Step 1 */}
-              {currentStep === 2 && (
-                <div className="flex justify-end space-x-4 pt-6 border-t">
-                   <button
-                      type="button"
-                      onClick={() => setCurrentStep(1)}
-                      className="px-6 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100 transition duration-150 ease-in-out shadow-sm"
-                    >
-                      Previous
-                    </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting} // Still disable if submitting email template (if that involves an API call)
-                    className={`px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-150 ease-in-out shadow-sm ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    {isSubmitting ? 'Saving Template...' : 'Save Template'} {/* Update button text */}
-                  </button>
-                </div>
               )}
             </form>
            </FormProvider>

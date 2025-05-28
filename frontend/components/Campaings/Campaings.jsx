@@ -173,9 +173,9 @@ console.log("showproductModal:", showProductModal);
 
   const filteredAndSortedCampaigns = campaigns
     .filter(campaign => {
-      const matchesSearch = campaign.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          campaign.description.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesFilter = filterStatus === 'all' || campaign.status === filterStatus;
+      const matchesSearch = campaign?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          campaign?.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesFilter = filterStatus === 'all' || campaign?.status === filterStatus;
       return matchesSearch && matchesFilter;
     })
     .sort((a, b) => {
@@ -479,16 +479,16 @@ console.log("showproductModal:", showProductModal);
                     </tr>
                   ) : (
                     fetchedCampaigns.map((campaign) => (
-                      <tr key={campaign._id} className="hover:bg-gray-50">
+                      <tr key={campaign?._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{campaign.campaignId}</div>
+                          <div className="text-sm font-medium text-gray-900">{campaign?.name||"" }</div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="text-sm text-gray-500">{"N/A"}</div>
+                          <div className="text-sm text-gray-500">{campaign?.description || "N/A"}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-500">
-                            {new Date(campaign.startDate).toLocaleDateString()} - {new Date(campaign.endDate).toLocaleDateString()}
+                            {new Date(campaign?.startDate).toLocaleDateString()} - {new Date(campaign?.endDate).toLocaleDateString()}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -505,10 +505,7 @@ console.log("showproductModal:", showProductModal);
                             className="text-blue-600 hover:text-blue-900 cursor-pointer mr-4"
                             disabled={true}
                           >
-                            View
-                          </button>
-                          <button className="text-red-600 hover:text-red-900 cursor-pointer" disabled={true}>
-                            Delete
+                            Send Email
                           </button>
                         </td>
                       </tr>
@@ -554,13 +551,13 @@ console.log("showproductModal:", showProductModal);
                   <div className="space-y-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Subject</label>
-                      <div className="mt-1 text-gray-900">{selectedCampaign.emailTemplate.subject}</div>
+                      <div className="mt-1 text-gray-900">{selectedcampaign?.emailTemplate.subject}</div>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Content</label>
                       <div className="mt-1 border rounded-md p-4 bg-gray-50">
-                        <div dangerouslySetInnerHTML={{ __html: selectedCampaign.emailTemplate.content }} />
+                        <div dangerouslySetInnerHTML={{ __html: selectedcampaign?.emailTemplate.content }} />
                       </div>
                     </div>
 
