@@ -2,38 +2,81 @@ import React, { useState } from 'react';
 import { FormProvider } from 'react-hook-form';
 import CampaignStepper from './CampaignStepper';
 import EmailTemplateForm from './EmailTemplateForm';
+import { useParams } from 'react-router-dom';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import SalesChannelSelectionModal from './SalesChannelSelectionModal';
 
 const CampaignCreatePage = ({
   currentStep,
   setCurrentStep,
   setShowCreateCampaign,
   setShowProductModal,
-  setShowCustomerModal,
+  // setShowCustomerModal, // Remove or comment out the old prop if it's no longer used
   selectedProducts,
-  selectedCustomers,
+  selectedCustomers, // This prop is likely no longer needed if state is internal
   methods,
   onSubmit: handleFormSubmit,
   errors,
   watch,
   register,
   handleIndividualProductSelect,
-  handleIndividualCustomerSelect
+  handleIndividualCustomerSelect, // This handler is used for channel selection
+  handleSelectAllCustomers // This handler is used for select all channels
 }) => {
   
   const { handleSubmit, getValues } = methods;
+  const { company_id } = useParams();
+
+  const [showSaleschannelModal, setShowSaleschannelModal] = useState(false);
+
+  // Rename the state variable selectedCustomers to selectedSaleschannels
+  const [selectedSaleschannels, setSelectedSaleschannels] = useState([]);
 
   // State for custom validation errors
   const [dateError, setDateError] = useState('');
   const [productError, setProductError] = useState('');
-  const [customerError, setCustomerError] = useState('');
+  const [customerError, setCustomerError] = useState(''); // Keep name for error message consistency
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const onSubmit = (data) => {
+  // Update handlers to use selectedSaleschannels
+  const handleIndividualSalesChannelSelect = (channelId) => {
+    setSelectedSaleschannels(prev =>
+      prev.includes(channelId)
+        ? prev.filter(id => id !== channelId)
+        : [...prev, channelId]
+    );
+  };
+
+  const handleSelectAllSalesChannels = (channelIdsToToggle) => {
+    setSelectedSaleschannels(prev => {
+      // If channelIdsToToggle is empty, there's nothing to select or deselect
+      if (channelIdsToToggle.length === 0) {
+        return prev; // Return current state
+      }
+
+      // Check if all channels in the current toggled list are already selected
+      const allAreCurrentlySelected = channelIdsToToggle.every(id => prev.includes(id));
+
+      if (allAreCurrentlySelected) {
+        // If all are selected, deselect all channels in the toggled list
+        return prev.filter(id => !channelIdsToToggle.includes(id));
+      } else {
+        // If not all are selected, select all channels in the toggled list
+        const newSelected = new Set(prev);
+        channelIdsToToggle.forEach(id => newSelected.add(id));
+        return Array.from(newSelected);
+      }
+    });
+  };
+
+  const onSubmit = async (data) => {
     // Clear previous errors
     setDateError('');
     setProductError('');
     setCustomerError('');
 
-    const { startDate, endDate } = data;
+    const { name, description, startDate, endDate, offerText, offerLabel, preLaunchDays, discount, isFreeShipping } = data;
 
     // Date validation
     if (new Date(startDate) > new Date(endDate)) {
@@ -47,30 +90,71 @@ const CampaignCreatePage = ({
       return;
     }
 
-    // Customer validation
-    if (selectedCustomers.length === 0) {
-      setCustomerError('Please select at least one customer.');
+    // Sales Channel validation
+    if (selectedSaleschannels.length === 0) { // Use selectedSaleschannels
+      setCustomerError('Please select at least one sales channel.');
       return;
     }
 
     // If all validations pass
     if (currentStep === 1) {
-      console.log('Campaign Details Step:', {
-        campaignData: data,
-        selectedProducts,
-        selectedCustomers,
+      const payload = {
+        type: "create_campaign",
+        name: name,
+        description: description || "", // Ensure description is included
+        offerText: offerText || "",
+        offerLabel: offerLabel || "",
+        companyId: company_id, // Use company_id from useParams
+        applicationIds: selectedSaleschannels, // Use selectedSaleschannels for applicationIds
+        products: selectedProducts, // Use selectedProducts for products
+        isFreeShipping: isFreeShipping, // Use isFreeShipping
+        discount: { // Use discount object
+            type: discount.type,
+            value: discount.value
+        },
+        startDate: new Date(startDate).toISOString(), // Format date to ISO string
+        endDate: new Date(endDate).toISOString(), // Format date to ISO string
+        preLaunchDays: parseInt(preLaunchDays || 0, 10), // Ensure it's a number
+      };
+
+      console.log('Campaign Details Step Payload:', payload);
+
+      setIsSubmitting(true); // Set loading state
+
+      try {
+        const response = await axios.post('https://create-campaign-af13fce1.serverless.boltic.app', payload, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        console.log("Campaign creation response:", response.data);
+
+        if (response.data.success) {
+          toast.success('Campaign details saved successfully!'); // Update toast message
+          setCurrentStep(2); // Move to the next step on success
+        } else {
+          throw new Error(response.data.message || 'Failed to save campaign details'); // Update error message
+        }
+
+      } catch (error) {
+        console.error('Error saving campaign details:', error);
+        toast.error(`Error saving campaign details: ${error.message}`); // Update toast message
+      } finally {
+        setIsSubmitting(false); // Unset loading state
+      }
+
+    } else { // This is the final submission step (Step 2) - Remove API call here
+      // Handle final submission (email template only now)
+      console.log('Campaign Creation Complete (Email Template Step):', { // Update log message
+        // The campaign is already created in Step 1, just log the email template data if needed
+        emailTemplateData: data.emailTemplate, // Assuming email template data is nested
         timestamp: new Date().toISOString()
       });
-      setCurrentStep(2);
-    } else {
-      // Handle final submission
-      console.log('Campaign Creation Complete:', {
-        campaignData: data,
-        selectedProducts,
-        selectedCustomers,
-        timestamp: new Date().toISOString()
-      });
-      setShowCreateCampaign(false);
+
+      // No API call needed here anymore for creating the main campaign
+      toast.success('Email template saved!'); // Add a success toast for email template saving
+      setShowCreateCampaign(false); // Close the modal after completing the email template step
     }
   };
 
@@ -131,6 +215,35 @@ const CampaignCreatePage = ({
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
+                      <label htmlFor="offerText" className="block text-sm font-medium text-gray-700 mb-1">Offer Text</label>
+                      <input
+                        type="text"
+                        id="offerText"
+                        {...register('offerText', { required: 'Offertext is required' })}
+                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        placeholder="e.g., 20% off"
+                      />
+                      {errors.offerText && (
+                        <p className="mt-2 !text-sm text-red-600">{errors.offerText.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label htmlFor="offerLabel" className="block text-sm font-medium text-gray-700 mb-1">Offer Label</label>
+                      <input
+                        type="text"
+                        id="offerLabel"
+                        {...register('offerLabel', { required: 'OfferLabel is required' })}
+                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        placeholder="e.g., Limited Time"
+                      />
+                      {errors.offerLabel && (
+                        <p className="mt-2 !text-sm text-red-600">{errors.offerLabel.message}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
                       <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                       <input
                         type="date"
@@ -159,6 +272,62 @@ const CampaignCreatePage = ({
                     )}
                   </div>
 
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="discountType" className="block text-sm font-medium text-gray-700 mb-1">Discount Type</label>
+                      <select
+                        id="discountType"
+                        {...register('discount.type', { required: 'Discount type is required' })}
+                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      >
+                        <option value="amount">Amount</option>
+                        <option value="percentage">Percentage</option>
+                      </select>
+                      {errors.discount?.type && (
+                        <p className="mt-2 !text-sm text-red-600">{errors.discount.type.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label htmlFor="discountValue" className="block text-sm font-medium text-gray-700 mb-1">Discount Value</label>
+                      <input
+                        type="number"
+                        id="discountValue"
+                        {...register('discount.value', { required: 'Discount value is required', min: { value: 0, message: 'Discount value must be positive' } })}
+                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        step="any"
+                      />
+                      {errors.discount?.value && (
+                        <p className="mt-2 !text-sm text-red-600">{errors.discount.value.message}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                    <div>
+                      <label className="inline-flex items-center">
+                        <input
+                          type="checkbox"
+                          {...register('isFreeShipping')}
+                          className="form-checkbox h-4 w-4 text-blue-600 transition duration-150 ease-in-out rounded border-gray-300 focus:ring-blue-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Offer Free Shipping</span>
+                      </label>
+                    </div>
+                    <div>
+                      <label htmlFor="preLaunchDays" className="block text-sm font-medium text-gray-700 mb-1">Pre-launch Days</label>
+                      <input
+                        type="number"
+                        id="preLaunchDays"
+                        {...register('preLaunchDays', { valueAsNumber: true, min: { value: 0, message: 'Pre-launch days must be non-negative' } })}
+                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        defaultValue={0}
+                      />
+                       {errors.preLaunchDays && (
+                        <p className="mt-2 !text-sm text-red-600">{errors.preLaunchDays.message}</p>
+                      )}
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Products</label>
                     <button
@@ -175,13 +344,13 @@ const CampaignCreatePage = ({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Customers</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Sales Channels</label>
                     <button
                       type="button"
-                      onClick={() => setShowCustomerModal(true)}
+                      onClick={() => setShowSaleschannelModal(true)}
                       className="flex justify-between items-center w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 bg-white hover:bg-gray-50 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
                     >
-                      <span>{selectedCustomers.length} customers selected</span>
+                      <span>{selectedSaleschannels.length} channels selected</span>
                       <span className="ml-2 text-gray-400">→</span>
                     </button>
                     {customerError && (
@@ -206,12 +375,46 @@ const CampaignCreatePage = ({
                   </div>
                 </div>
               ) : (
-                <EmailTemplateForm setCurrentStep={setCurrentStep} />
+                <EmailTemplateForm
+                  setCurrentStep={setCurrentStep}
+                  register={register}
+                  errors={errors}
+                  watch={watch}
+                />
+              )}
+
+              {/* Submit button for Step 2 (Email Template) - Hidden in Step 1 */}
+              {currentStep === 2 && (
+                <div className="flex justify-end space-x-4 pt-6 border-t">
+                   <button
+                      type="button"
+                      onClick={() => setCurrentStep(1)}
+                      className="px-6 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100 transition duration-150 ease-in-out shadow-sm"
+                    >
+                      Previous
+                    </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting} // Still disable if submitting email template (if that involves an API call)
+                    className={`px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-150 ease-in-out shadow-sm ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {isSubmitting ? 'Saving Template...' : 'Save Template'} {/* Update button text */}
+                  </button>
+                </div>
               )}
             </form>
            </FormProvider>
         </div>
       </div>
+
+      <SalesChannelSelectionModal
+        showModal={showSaleschannelModal}
+        onClose={() => setShowSaleschannelModal(false)}
+        selectedChannels={selectedSaleschannels}
+        onChannelSelect={handleIndividualSalesChannelSelect}
+        onSelectAllChannels={handleSelectAllSalesChannels}
+      />
+
     </div>
   );
 };

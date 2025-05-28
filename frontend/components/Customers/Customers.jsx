@@ -1,16 +1,44 @@
 import React, { useState, useEffect } from "react";
-import { customers } from "../../constants/customers";
-
+import axios from "axios";
+import { useParams } from "react-router-dom";
+import { toast } from "react-toastify";
 
 export const Customers = () => {
-  const [pageLoading, setPageLoading] = useState(false);
+  const { company_id } = useParams();
+  const [pageLoading, setPageLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortField, setSortField] = useState("firstname");
+  const [sortField, setSortField] = useState("firstName");
   const [sortDirection, setSortDirection] = useState("asc");
-  const [filterVipRatio, setFilterVipRatio] = useState(0);
-  const [filteredCustomers, setFilteredCustomers] = useState(customers);
+  const [customers, setCustomers] = useState([]);
+  const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 10;
+
+  const fetchCustomers = async () => {
+    setPageLoading(true);
+    try {
+      const response = await axios.get(`${import.meta.env.VITE_FETCH_BACKEND_URL}?module=users&companyId=${company_id}&queryType=scan`, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      if (response.data.success) {
+        setCustomers(response.data.data);
+        setFilteredCustomers(response.data.data);
+      } else {
+        throw new Error('Failed to fetch customers');
+      }
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+      toast.error('Failed to fetch customers');
+    } finally {
+      setPageLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCustomers();
+  }, [company_id]);
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -26,20 +54,16 @@ export const Customers = () => {
 
     if (searchTerm) {
       result = result.filter(customer => 
-        customer.firstname.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.lastname.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.mobile.includes(searchTerm)
+        customer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        customer.phone?.includes(searchTerm)
       );
     }
 
-    if (filterVipRatio > 0) {
-      result = result.filter(customer => customer.vipRatio >= filterVipRatio);
-    }
-
     result.sort((a, b) => {
-      const aValue = a[sortField];
-      const bValue = b[sortField];
+      const aValue = a[sortField] || '';
+      const bValue = b[sortField] || '';
       
       if (sortDirection === "asc") {
         return aValue > bValue ? 1 : -1;
@@ -49,8 +73,8 @@ export const Customers = () => {
     });
 
     setFilteredCustomers(result);
-    setCurrentPage(1); // Reset to first page when filters change
-  }, [searchTerm, sortField, sortDirection, filterVipRatio]);
+    setCurrentPage(1);
+  }, [searchTerm, sortField, sortDirection, customers]);
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
@@ -210,54 +234,29 @@ export const Customers = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <div className="w-full sm:w-64 flex-shrink-0">
-                <select
-                  className="w-full block focus:ring-indigo-500 focus:border-indigo-500 py-3 pl-3 pr-10 border-gray-300 rounded-md text-sm"
-                  value={filterVipRatio}
-                  onChange={(e) => setFilterVipRatio(Number(e.target.value))}
-                >
-                  <option value="0">All VIP Ratios</option>
-                  <option value="50">VIP Ratio ≥ 50%</option>
-                  <option value="75">VIP Ratio ≥ 75%</option>
-                  <option value="90">VIP Ratio ≥ 90%</option>
-                </select>
-              </div>
             </div>
           </div>
           
           {/* Column Headers */}
           <div className="grid grid-cols-12 items-center bg-gray-50 px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
             <div 
-              className="col-span-3 flex items-center space-x-1 cursor-pointer hover:text-indigo-700"
-              onClick={() => handleSort("firstname")}
+              className="col-span-4 flex items-center space-x-1 cursor-pointer hover:text-indigo-700"
+              onClick={() => handleSort("firstName")}
             >
               <span>Name</span>
-              {sortField === "firstname" && (
+              {sortField === "firstName" && (
                 <svg className={`w-4 h-4 ${sortDirection === "asc" ? "" : "transform rotate-180"}`} fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 4.414l-3.293 3.293a1 1 0 01-1.414 0zM10 15.586l-3.293-3.293a1 1 0 11.414-1.414L10 14.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                 </svg>
               )}
             </div>
-            <div className="col-span-3">Email</div>
-            <div className="col-span-2">Mobile</div>
+            <div className="col-span-4">Email</div>
             <div 
-              className="col-span-1 flex items-center space-x-1 cursor-pointer hover:text-indigo-700"
-              onClick={() => handleSort("totalOrderCount")}
+              className="col-span-4 flex items-center space-x-1 cursor-pointer hover:text-indigo-700"
+              onClick={() => handleSort("phone")}
             >
-              <span>Orders</span>
-              {sortField === "totalOrderCount" && (
-                <svg className={`w-4 h-4 ${sortDirection === "asc" ? "" : "transform rotate-180"}`} fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 4.414l-3.293 3.293a1 1 0 01-1.414 0zM10 15.586l-3.293-3.293a1 1 0 11.414-1.414L10 14.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-              )}
-            </div>
-            <div className="col-span-1">Order No</div>
-            <div 
-              className="col-span-2 flex items-center space-x-1 cursor-pointer hover:text-indigo-700"
-              onClick={() => handleSort("vipRatio")}
-            >
-              <span>VIP Ratio</span>
-              {sortField === "vipRatio" && (
+              <span>Phone</span>
+              {sortField === "phone" && (
                 <svg className={`w-4 h-4 ${sortDirection === "asc" ? "" : "transform rotate-180"}`} fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 4.414l-3.293 3.293a1 1 0 01-1.414 0zM10 15.586l-3.293-3.293a1 1 0 11.414-1.414L10 14.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                 </svg>
@@ -273,50 +272,33 @@ export const Customers = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
                 <h3 className="mt-2 text-sm font-medium text-gray-900">No customers found</h3>
-                <p className="mt-1 text-sm text-gray-500">Try adjusting your search or filter criteria.</p>
+                <p className="mt-1 text-sm text-gray-500">Try adjusting your search criteria.</p>
               </div>
             ) : (
               currentCustomers.map((customer) => (
-                <div key={customer.id} className="grid grid-cols-12 items-center px-6 py-4 hover:bg-gray-50 transition-colors">
-                  <div className="col-span-3">
+                <div key={customer._id} className="grid grid-cols-12 items-center px-6 py-4 hover:bg-gray-50 transition-colors">
+                  <div className="col-span-4">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
                         <span className="text-indigo-800 font-medium text-sm">
-                          {customer.firstname.charAt(0)}{customer.lastname.charAt(0)}
+                          {customer.firstName?.charAt(0) || ''}{customer.lastName?.charAt(0) || ''}
                         </span>
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{customer.firstname} {customer.lastname}</div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {customer.firstName} {customer.lastName}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          ID: {customer.userId}
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div className="col-span-3 text-sm text-gray-600 truncate">
-                    {customer.email}
+                  <div className="col-span-4 text-sm text-gray-600">
+                    {customer.email || 'No email'}
                   </div>
-                  <div className="col-span-2 text-sm text-gray-600">
-                    {customer.mobile}
-                  </div>
-                  <div className="col-span-1 text-sm font-medium text-gray-900">
-                    {customer.totalOrderCount}
-                  </div>
-                  <div className="col-span-1 text-sm text-gray-600">
-                    {customer.totalOrderNo}
-                  </div>
-                  <div className="col-span-2">
-                    <div className="flex items-center">
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className={`h-2 rounded-full ${
-                            customer.vipRatio >= 90 ? 'bg-green-500' : 
-                            customer.vipRatio >= 75 ? 'bg-blue-500' : 
-                            customer.vipRatio >= 50 ? 'bg-indigo-500' : 
-                            'bg-gray-500'
-                          } transition-all duration-300`}
-                          style={{ width: `${customer.vipRatio}%` }}
-                        ></div>
-                      </div>
-                      <span className="ml-2 text-xs font-medium text-gray-900">{customer.vipRatio}%</span>
-                    </div>
+                  <div className="col-span-4 text-sm text-gray-600">
+                    {customer.phone}
                   </div>
                 </div>
               ))

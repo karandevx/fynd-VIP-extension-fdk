@@ -79,15 +79,76 @@ app.post('/api/webhook-events', async function(req, res) {
 
 productRouter.get('/', async function view(req, res, next) {
     try {
-        const {
-            platformClient
-        } = req;
-        const data = await platformClient.catalog.getProducts()
-        return res.json(data);
+      const { platformClient } = req;
+  
+      let allProducts = [];
+      let pageNo = 1;
+      const pageSize = 50;
+      let hasNextPage = true;
+  
+      while (hasNextPage) {
+        const data = await platformClient.catalog.getProducts({
+          pageNo,
+          pageSize,
+        });
+    
+        const items = data?.items || [];
+  
+        // Filter out products that have the tag 'vip_product'
+        const filtered = items.filter(
+          (product) => !(product?.tags || []).includes('vip_product')
+        );
+  
+        allProducts = allProducts.concat(filtered);
+  
+        const pageInfo = data?.page || {};
+        hasNextPage = pageInfo?.has_next === true;
+        pageNo++;
+      }
+  
+      return res.json({
+        total: allProducts.length,
+        items: allProducts,
+      });
     } catch (err) {
-        next(err);
+      next(err);
     }
 });
+  
+productRouter.get('/vip-products', async function view(req, res, next) {
+    try {
+      const { platformClient } = req;
+  
+      let allVipProducts = [];
+      let pageNo = 1;
+      const pageSize = 50;
+      let hasNextPage = true;
+  
+      while (hasNextPage) {
+        const data = await platformClient.catalog.getProducts({
+          pageNo,
+          pageSize,
+          tags: ['vip_product'],
+        });
+  
+        const items = data?.items || [];
+        allVipProducts = allVipProducts.concat(items);
+  
+        const pageInfo = data?.page || {};
+        hasNextPage = pageInfo?.has_next === true;
+        pageNo++;
+      }
+  
+      return res.json({
+        total: allVipProducts.length,
+        items: allVipProducts,
+      });
+    } catch (err) {
+      next(err);
+    }
+});
+  
+  
 
 // Get products list for application
 productRouter.get('/application/:application_id', async function view(req, res, next) {
@@ -95,9 +156,9 @@ productRouter.get('/application/:application_id', async function view(req, res, 
         const {
             platformClient
         } = req;
-        const { application_id } = req.params;
-        const data = await platformClient.application(application_id).catalog.getAppProducts()
-        return res.json(data);
+        const { application_id } = req?.params;
+        const data = await platformClient?.application(application_id)?.catalog?.getAppProducts()
+        return res?.json(data);
     } catch (err) {
         next(err);
     }

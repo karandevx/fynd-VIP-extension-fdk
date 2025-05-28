@@ -11,6 +11,7 @@ import ProductSelectionModal from './ProductSelectionModal';
 import CampaignStepper from './CampaignStepper';
 import EmailTemplateForm from './EmailTemplateForm';
 import CampaignCreatePage from './CampaignCreatePage';
+import { toast } from 'react-toastify';
 
 const SIDEBAR_WIDTH = '16rem';
 const EXAMPLE_MAIN_URL = window.location.origin;
@@ -24,14 +25,18 @@ const Campaigns = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [showProductModal, setShowProductModal] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [showSaleschannelModal, setShowSaleschannelModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState('name');
   const [sortDirection, setSortDirection] = useState('asc');
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [selectedCustomers, setSelectedCustomers] = useState([]);
+  const [selectedSaleschannels, setSelectedSaleschannels] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [products, setProductList] = useState([]);
+  const [fetchedCampaigns, setFetchedCampaigns] = useState([]);
+  const [isCampaignsLoading, setIsCampaignsLoading] = useState(false);
 
 console.log("showproductModal:", showProductModal);
 
@@ -73,6 +78,10 @@ console.log("showproductModal:", showProductModal);
     isApplicationLaunch() ? fetchApplicationProducts() : fetchProducts();
   }, [application_id]);
 
+  useEffect(() => {
+    fetchCampaigns();
+  }, [company_id]);
+
 
   const isApplicationLaunch = () => !!application_id;
 
@@ -80,7 +89,7 @@ console.log("showproductModal:", showProductModal);
   const fetchProducts = async () => {
     // setPageLoading(true);
     try {
-      const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, '/api/products'),{
+      const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, '/api/products/'),{
         headers: {
           "x-company-id": company_id,
         }
@@ -108,6 +117,28 @@ console.log("showproductModal:", showProductModal);
       console.error("Error fetching application products:", e);
     } finally {
       // setPageLoading(false);
+    }
+  };
+
+  const fetchCampaigns = async () => {
+    setIsCampaignsLoading(true);
+    try {
+      const { data } = await axios.get(`https://fetch-db-data-d9ca324b.serverless.boltic.app?module=campaigns&companyId=${company_id}&queryType=scan`, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      console.log("Fetched campaigns:", data);
+      if (data.success) {
+        setFetchedCampaigns(data.data);
+      } else {
+        throw new Error('Failed to fetch campaigns');
+      }
+    } catch (e) {
+      console.error("Error fetching campaigns:", e);
+      toast.error('Failed to fetch campaigns');
+    } finally {
+      setIsCampaignsLoading(false);
     }
   };
 
@@ -271,12 +302,43 @@ console.log("showproductModal:", showProductModal);
     );
   };
 
+  // Handlers for Sales Channel Selection
+  const handleIndividualSalesChannelSelect = (channelId) => {
+    setSelectedSaleschannels(prev =>
+      prev.includes(channelId)
+        ? prev.filter(id => id !== channelId)
+        : [...prev, channelId]
+    );
+  };
+
+  const handleSelectAllSalesChannels = (channelIdsToToggle) => {
+    setSelectedSaleschannels(prev => {
+      if (channelIdsToToggle.length === 0) {
+        return prev;
+      }
+      const allAreCurrentlySelected = channelIdsToToggle.every(id => prev.includes(id));
+      if (allAreCurrentlySelected) {
+        return prev.filter(id => !channelIdsToToggle.includes(id));
+      } else {
+        const newSelected = new Set(prev);
+        channelIdsToToggle.forEach(id => newSelected.add(id));
+        return Array.from(newSelected);
+      }
+    });
+  };
+
   const onSubmit = (data) => {
     if (currentStep === 1) {
       setCurrentStep(2);
     } else {
       // Handle final submission
-      console.log('Form submitted:', data);
+      console.log('Campaign Creation Complete:', {
+        campaignData: data,
+        selectedProducts,
+        selectedCustomers,
+        selectedSaleschannels,
+        timestamp: new Date().toISOString()
+      });
       setShowCreateCampaign(false);
     }
   };
@@ -290,8 +352,10 @@ console.log("showproductModal:", showProductModal);
           setShowCreateCampaign={setShowCreateCampaign}
           setShowProductModal={setShowProductModal}
           setShowCustomerModal={setShowCustomerModal}
+          setShowSaleschannelModal={setShowSaleschannelModal}
           selectedProducts={selectedProducts}
           selectedCustomers={selectedCustomers}
+          selectedSaleschannels={selectedSaleschannels}
           methods={methods}
           onSubmit={handleSubmit(onSubmit)}
           errors={errors}
@@ -299,6 +363,9 @@ console.log("showproductModal:", showProductModal);
           register={register}
           handleIndividualProductSelect={handleIndividualProductSelect}
           handleIndividualCustomerSelect={handleIndividualCustomerSelect}
+          handleIndividualSalesChannelSelect={handleIndividualSalesChannelSelect}
+          handleSelectAllCustomers={handleSelectAllCustomers}
+          handleSelectAllSalesChannels={handleSelectAllSalesChannels}
         />
       ) : (
         <div>
@@ -401,41 +468,53 @@ console.log("showproductModal:", showProductModal);
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredAndSortedCampaigns.map((campaign) => (
-                    <tr key={campaign.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{campaign.name}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-500">{campaign.description}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
-                          {campaign.startDate} - {campaign.endDate}
+                  {isCampaignsLoading ? (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
+                        <div className="flex justify-center items-center">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
+                          Loading campaigns...
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${campaignStatusColors[campaign.status]}`}>
-                          {campaign.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => {
-                            setSelectedCampaign(campaign);
-                            setShowEmailTemplate(true);
-                          }}
-                          className="text-blue-600 hover:text-blue-900 cursor-pointer mr-4"
-                        >
-                          View
-                        </button>
-                        <button className="text-red-600 hover:text-red-900 cursor-pointer">
-                          Delete
-                        </button>
-                      </td>
                     </tr>
-                  ))}
-                  {filteredAndSortedCampaigns.length === 0 && (
+                  ) : (
+                    fetchedCampaigns.map((campaign) => (
+                      <tr key={campaign._id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{campaign.campaignId}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-500">{"N/A"}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">
+                            {new Date(campaign.startDate).toLocaleDateString()} - {new Date(campaign.endDate).toLocaleDateString()}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${campaignStatusColors["active"]}`}>
+                            {"active"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <button
+                            onClick={() => {
+                              // Need to adjust this to handle new data structure if viewing is needed
+                              // For now, no action on View
+                            }}
+                            className="text-blue-600 hover:text-blue-900 cursor-pointer mr-4"
+                            disabled={true}
+                          >
+                            View
+                          </button>
+                          <button className="text-red-600 hover:text-red-900 cursor-pointer" disabled={true}>
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                  {!isCampaignsLoading && fetchedCampaigns.length === 0 && (
                     <tr>
                       <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
                         No campaigns found
