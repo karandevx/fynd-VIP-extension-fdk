@@ -1,31 +1,34 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import urlJoin from 'url-join';
-import { useParams } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import urlJoin from "url-join";
+import { useParams } from "react-router-dom";
+import { toast } from "react-toastify";
 
-const VipProducts = ({ initialProducts = [], applicationIds = [], companyId }) => {
+const VipProducts = ({ initialProducts = [], setActiveTab, disabled }) => {
   const { company_id } = useParams();
   const [productList, setProductList] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState(initialProducts);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const EXAMPLE_MAIN_URL = window.location.origin;
-  const isConfigured = initialProducts?.length > 0;
+  const isConfigured = disabled;
 
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, '/api/products/vip-products'), {
-        headers: {
-          "x-company-id": company_id,
+      const { data } = await axios.get(
+        urlJoin(EXAMPLE_MAIN_URL, "/api/products/vip-products"),
+        {
+          headers: {
+            "x-company-id": company_id,
+          },
         }
-      });
+      );
       console.log("Fetched products:", data);
       setProductList(data.items);
     } catch (e) {
       console.error("Error fetching products:", e);
-      toast.error('Failed to fetch VIP products');
+      toast.error("Failed to fetch VIP products");
     } finally {
       setLoading(false);
     }
@@ -35,18 +38,21 @@ const VipProducts = ({ initialProducts = [], applicationIds = [], companyId }) =
     fetchProducts();
   }, [company_id]);
 
-  const handleProductSelect = (productUid) => {
+  const handleProductSelect = async (productUid) => {
+    console.log("selectedProducts :", selectedProducts);
+    console.log("Product selected:", productUid);
     if (isConfigured) return;
-    setSelectedProducts(prev => {
+    console.log("after return Product selected:", productUid);
+    setSelectedProducts((prev) => {
       if (prev.includes(productUid)) {
-        return prev.filter(uid => uid !== productUid);
+        return prev.filter((uid) => uid !== productUid);
       } else {
         return [...prev, productUid];
       }
     });
   };
 
-  const handleRowClick = (productUid) => {
+  const handleRowClick = async (productUid) => {
     if (isConfigured) return;
     handleProductSelect(productUid);
   };
@@ -56,42 +62,45 @@ const VipProducts = ({ initialProducts = [], applicationIds = [], companyId }) =
     if (selectedProducts?.length === productList?.length) {
       setSelectedProducts([]);
     } else {
-      setSelectedProducts(productList.map(product => product.uid));
+      setSelectedProducts(productList.map((product) => product.uid));
     }
   };
 
   const handleSave = async () => {
-    if (isConfigured) return;
     if (selectedProducts?.length === 0) {
-      toast.warning('Please select at least one product');
+      toast.warning("Please select at least one product");
       return;
     }
-
     setSaving(true);
     console.log({
       type: "product_create",
       companyId: company_id,
-      vipProducts: selectedProducts
+      vipProducts: selectedProducts,
     });
     try {
-      const response = await axios.post(import.meta.env.VITE_BACKEND_URL, {
-        type: "product_create",
-        companyId: company_id,
-        vipProducts: selectedProducts
-      }, {
-        headers: {
-          'Content-Type': 'application/json'
+      const response = await axios.post(
+        import.meta.env.VITE_BACKEND_URL,
+        {
+          type: "product_create",
+          companyId: company_id,
+          vipProducts: selectedProducts,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
         }
-      });
+      );
 
       if (response.status === 200) {
-        toast.success('VIP products saved successfully');
+        toast.success("VIP products saved successfully");
+        setActiveTab("benefits");
       } else {
-        throw new Error('Failed to save VIP products');
+        throw new Error("Failed to save VIP products");
       }
     } catch (error) {
-      console.error('Error saving VIP products:', error);
-      toast.error('Failed to save VIP products');
+      console.error("Error saving VIP products:", error);
+      toast.error("Failed to save VIP products");
     } finally {
       setSaving(false);
     }
@@ -118,25 +127,31 @@ const VipProducts = ({ initialProducts = [], applicationIds = [], companyId }) =
             </span>
           )}
           <span className="px-3 py-1 text-sm font-medium bg-blue-100 text-blue-800 rounded-full">
-            {selectedProducts?.length} {selectedProducts?.length === 1 ? 'Product' : 'Products'} Selected
+            {selectedProducts?.length} {""}
+            {selectedProducts?.length === 1 ? "Product " : "Products "} Selected
           </span>
         </div>
         {!isConfigured && (
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-4 ">
             <button
               onClick={handleSelectAll}
-              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+              className="text-blue-600 hover:text-blue-700 text-sm font-medium cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {selectedProducts?.length === productList?.length ? 'Deselect All' : 'Select All'}
+              {selectedProducts?.length === productList?.length
+                ? "Deselect All"
+                : "Select All"}
             </button>
             <button
+              type="button"
               onClick={handleSave}
-              disabled={saving}
-              className={`bg-blue-600 text-white px-4 py-2 rounded-md transition-colors ${
-                saving ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
+              disabled={saving || disabled}
+              className={`cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-md transition-colors ${
+                saving ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"
               }`}
             >
-              {saving ? 'Saving...' : `Save Selection (${selectedProducts?.length})`}
+              {saving
+                ? "Saving..."
+                : `Save Selection (${selectedProducts?.length})`}
             </button>
           </div>
         )}
@@ -147,20 +162,35 @@ const VipProducts = ({ initialProducts = [], applicationIds = [], companyId }) =
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
                   Product
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
                   Price
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
                   Status
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
                   Category
                 </th>
                 {!isConfigured && (
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
                     Select
                   </th>
                 )}
@@ -169,7 +199,10 @@ const VipProducts = ({ initialProducts = [], applicationIds = [], companyId }) =
             <tbody className="bg-white divide-y divide-gray-200">
               {productList?.length === 0 ? (
                 <tr>
-                  <td colSpan={isConfigured ? "4" : "5"} className="px-6 py-4 text-center text-gray-500">
+                  <td
+                    colSpan={isConfigured ? "4" : "5"}
+                    className="px-6 py-4 text-center text-gray-500"
+                  >
                     No products found
                   </td>
                 </tr>
@@ -184,10 +217,14 @@ const VipProducts = ({ initialProducts = [], applicationIds = [], companyId }) =
                     return 0;
                   })
                   .map((product) => (
-                    <tr 
-                      key={product.uid} 
-                      className={`${!isConfigured ? 'hover:bg-gray-50 cursor-pointer' : ''} ${
-                        selectedProducts.includes(product.uid) ? 'bg-blue-50' : ''
+                    <tr
+                      key={product.uid}
+                      className={`${
+                        !isConfigured ? "hover:bg-gray-50 cursor-pointer" : ""
+                      } ${
+                        selectedProducts?.includes(product.uid)
+                          ? "bg-blue-50"
+                          : ""
                       }`}
                       onClick={() => handleRowClick(product.uid)}
                     >
@@ -202,31 +239,45 @@ const VipProducts = ({ initialProducts = [], applicationIds = [], companyId }) =
                               />
                             ) : (
                               <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
-                                <span className="text-gray-400 text-xs">No img</span>
+                                <span className="text-gray-400 text-xs">
+                                  No img
+                                </span>
                               </div>
                             )}
                           </div>
                           <div className="ml-4">
                             <div className="flex items-center space-x-2">
-                              <span className="text-sm font-medium text-gray-900">{product.name}</span>
+                              <span className="text-sm font-medium text-gray-900">
+                                {product.name}
+                              </span>
                               {selectedProducts.includes(product.uid) && (
                                 <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
                                   Selected
                                 </span>
                               )}
                             </div>
-                            <div className="text-sm text-gray-500">{product.item_code}</div>
+                            <div className="text-sm text-gray-500">
+                              {product.item_code}
+                            </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">₹{product.price?.effective?.min}</div>
-                        <div className="text-sm text-gray-500 line-through">₹{product.price?.marked?.min}</div>
+                        <div className="text-sm text-gray-900">
+                          ₹{product.price?.effective?.min}
+                        </div>
+                        <div className="text-sm text-gray-500 line-through">
+                          ₹{product.price?.marked?.min}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          product.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                        }`}>
+                        <span
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            product.status === "active"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
                           {product.status}
                         </span>
                       </td>
@@ -238,12 +289,12 @@ const VipProducts = ({ initialProducts = [], applicationIds = [], companyId }) =
                           <input
                             type="checkbox"
                             id={`product-${product.uid}`}
-                            checked={selectedProducts.includes(product.uid)}
-                            onChange={(e) => {
+                            checked={selectedProducts?.includes(product.uid)}
+                            onClick={(e) => {
                               e.stopPropagation();
-                              handleProductSelect(product.uid);
+                              handleRowClick(product.uid);
                             }}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            className="cursor-pointer h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                           />
                         </td>
                       )}
@@ -258,4 +309,4 @@ const VipProducts = ({ initialProducts = [], applicationIds = [], companyId }) =
   );
 };
 
-export default VipProducts; 
+export default VipProducts;

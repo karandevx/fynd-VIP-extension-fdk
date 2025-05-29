@@ -1,151 +1,157 @@
-import React from 'react';
-import axios from 'axios';
-import { toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import { useParams } from 'react-router-dom';
+import React from "react";
+import axios from "axios";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { useParams } from "react-router-dom";
 
 const AccessConfig = ({
   accessConfig,
   setAccessConfig,
-  handleSaveAccessConfig,
-  disabled
+  disabled,
+  setActiveTab,
 }) => {
   const { company_id } = useParams();
-  const hasCredentials = accessConfig.clientId && accessConfig.clientSecret;
 
   const handleSave = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post(import.meta.env.VITE_BACKEND_URL, {
-        type: "client_credentials",
-        companyId: company_id,
-        client_id: accessConfig.clientId,
-        client_secret: accessConfig.clientSecret
-      }, {
-        headers: {
-          'Content-Type': 'application/json'
+      const response = await axios.post(
+        import.meta.env.VITE_BACKEND_URL,
+        {
+          type: "client_credentials",
+          companyId: company_id,
+          clientId: accessConfig.clientId,
+          clientSecret: accessConfig.clientSecret,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
         }
-      });
-      
-      toast.success('Configuration saved successfully!');
-      console.log('API Response:', response.data);
+      );
+
+      toast.success("Configuration saved successfully!");
+      console.log("API Response:", response.data);
+      setActiveTab("vip");
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to save configuration');
-      console.error('Error saving configuration:', error.response?.data || error.message);
+      toast.error(
+        error.response?.data?.message || "Failed to save configuration"
+      );
+      console.error(
+        "Error saving configuration:",
+        error.response?.data || error.message
+      );
     }
   };
 
   return (
     <div className="p-6 rounded-lg bg-white shadow-sm">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-lg font-semibold text-gray-900">Access Configuration</h2>
-        {hasCredentials && (
+        <h2 className="text-lg font-semibold text-gray-900">
+          Access Configuration
+        </h2>
+        {!disabled && (
           <span className="px-3 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full">
             Configured
           </span>
         )}
       </div>
 
-      {hasCredentials ? (
+      {!disabled ? (
         <div className="space-y-6">
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700">Client ID</label>
+            <label className="block text-sm font-medium mb-1 text-gray-700">
+              Client ID
+            </label>
             <div className="w-full px-3 py-2 bg-gray-50 border rounded-md border-gray-300 text-gray-700">
-              {accessConfig.clientId}
+              {accessConfig?.clientId}
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700">Client Secret</label>
+            <label className="block text-sm font-medium mb-1 text-gray-700">
+              Client Secret
+            </label>
             <div className="w-full px-3 py-2 bg-gray-50 border rounded-md border-gray-300 text-gray-700">
               ••••••••••••••••
             </div>
           </div>
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="enableAccess"
-              checked={accessConfig.enabled}
-              disabled
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="enableAccess" className="ml-2 block text-sm text-gray-700">
-              API Access Enabled
-            </label>
-          </div>
         </div>
       ) : (
-        <form onSubmit={handleSave} className="space-y-6">
+        <form className="space-y-6">
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700">Client ID</label>
+            <label className="block text-sm font-medium mb-1 text-gray-700">
+              Client ID
+            </label>
             <input
               type="text"
               value={accessConfig.clientId}
-              onChange={(e) => setAccessConfig({ ...accessConfig, clientId: e.target.value })}
+              onChange={(e) =>
+                setAccessConfig({ ...accessConfig, clientId: e.target.value })
+              }
               className="w-full px-3 py-2 border rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Enter your client ID"
               required
-              disabled={disabled}
             />
             <p className="mt-1 !text-sm text-gray-500">
-              The client ID is used to authenticate your application with the API.
+              The client ID is used to authenticate your application with the
+              API.
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700">Client Secret</label>
+            <label className="block text-sm font-medium mb-1 text-gray-700">
+              Client Secret
+            </label>
             <input
               type="password"
               value={accessConfig.clientSecret}
-              onChange={(e) => setAccessConfig({ ...accessConfig, clientSecret: e.target.value })}
+              onChange={(e) =>
+                setAccessConfig({
+                  ...accessConfig,
+                  clientSecret: e.target.value,
+                })
+              }
               className="w-full px-3 py-2 border rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Enter your client secret"
               required
-              disabled={disabled}
             />
             <p className="mt-1 !text-sm text-gray-500">
-              The client secret is used to securely authenticate your application. Keep this confidential.
+              The client secret is used to securely authenticate your
+              application. Keep this confidential.
             </p>
           </div>
 
-          <div className="flex items-center hover:cursor-pointer">
-            <input
-              type="checkbox"
-              id="enableAccess"
-              checked={accessConfig.enabled}
-              onChange={(e) => setAccessConfig({ ...accessConfig, enabled: e.target.checked })}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              disabled={disabled}
-            />
-            <label htmlFor="enableAccess" className="ml-2 block text-sm text-gray-700">
-              Enable API Access
-            </label>
-          </div>
-
-          <div className="pt-4">
-            <button
-              type="submit"
-              className="w-full bg-blue-600 hover:cursor-pointer text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
-              disabled={disabled}
-            >
-              Save Configuration
-            </button>
-          </div>
+          {disabled && (
+            <div className="pt-4">
+              <button
+                type="button"
+                className="w-full bg-blue-600 hover:cursor-pointer text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+                onClick={(e) => handleSave(e)}
+              >
+                Save Configuration
+              </button>
+            </div>
+          )}
         </form>
       )}
 
       <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-        <h3 className="text-sm font-medium text-gray-900 mb-2">API Access Information</h3>
+        <h3 className="text-sm font-medium text-gray-900 mb-2">
+          API Access Information
+        </h3>
         <div className="space-y-2 !text-sm text-gray-600">
-          <p className='!text-sm'>
-            • Your API credentials will be used to authenticate requests to the VIP extension API.
+          <p className="!text-sm">
+            • Your API credentials will be used to authenticate requests to the
+            VIP extension API.
           </p>
-          <p className='!text-sm'>
-            • Make sure to keep your client secret secure and never expose it in client-side code.
+          <p className="!text-sm">
+            • Make sure to keep your client secret secure and never expose it in
+            client-side code.
           </p>
-          <p className='!text-sm'>
-            • You can obtain your client ID and secret from the developer dashboard.
+          <p className="!text-sm">
+            • You can obtain your client ID and secret from the developer
+            dashboard.
           </p>
         </div>
       </div>
@@ -153,4 +159,4 @@ const AccessConfig = ({
   );
 };
 
-export default AccessConfig; 
+export default AccessConfig;
