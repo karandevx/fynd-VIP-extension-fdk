@@ -13,6 +13,8 @@ export const Customers = () => {
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [salesChannels, setSalesChannels] = useState([]);
+  const [selectedChannel, setSelectedChannel] = useState('all');
 
   const fetchCustomers = async () => {
     setPageLoading(true);
@@ -40,6 +42,30 @@ export const Customers = () => {
     fetchCustomers();
   }, [company_id]);
 
+  // Fetch sales channels on mount
+  useEffect(() => {
+    const fetchSalesChannels = async () => {
+      try {
+        const response = await axios.get(
+          `https://fetch-db-data-d9ca324b.serverless.boltic.app?module=salesChannels&companyId=${company_id}`,
+          { headers: { 'Content-Type': 'application/json' } }
+        );
+        if (response.data.success) {
+          setSalesChannels(response.data.data);
+        }
+      } catch (err) {
+        // Optionally handle error
+      }
+    };
+    fetchSalesChannels();
+  }, [company_id]);
+
+  // Map applicationId to sales channel name
+  const getSalesChannelName = (id) => {
+    const channel = salesChannels.find((ch) => ch._id === id);
+    return channel ? channel.name : id;
+  };
+
   const handleSort = (field) => {
     if (sortField === field) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -52,6 +78,7 @@ export const Customers = () => {
   useEffect(() => {
     let result = [...customers];
 
+    // Filter by search term
     if (searchTerm) {
       result = result.filter(customer => 
         customer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -61,10 +88,24 @@ export const Customers = () => {
       );
     }
 
+    // Filter by sales channel
+    if (selectedChannel !== 'all') {
+      result = result.filter(customer => customer.applicationId === selectedChannel);
+    }
+
+    // Sorting
     result.sort((a, b) => {
-      const aValue = a[sortField] || '';
-      const bValue = b[sortField] || '';
-      
+      let aValue, bValue;
+      if (sortField === 'VIPExpiry') {
+        aValue = a.VIPExpiry ? new Date(a.VIPExpiry) : new Date(0);
+        bValue = b.VIPExpiry ? new Date(b.VIPExpiry) : new Date(0);
+      } else if (sortField === 'VIPDays') {
+        aValue = parseInt(a.VIPDays) || 0;
+        bValue = parseInt(b.VIPDays) || 0;
+      } else {
+        aValue = a[sortField] || '';
+        bValue = b[sortField] || '';
+      }
       if (sortDirection === "asc") {
         return aValue > bValue ? 1 : -1;
       } else {
@@ -74,7 +115,7 @@ export const Customers = () => {
 
     setFilteredCustomers(result);
     setCurrentPage(1);
-  }, [searchTerm, sortField, sortDirection, customers]);
+  }, [searchTerm, sortField, sortDirection, customers, selectedChannel]);
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
@@ -195,8 +236,8 @@ export const Customers = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
-      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div className="min-h-screen ">
+      <div className="mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="!text-2xl text-center w-full font-extrabold text-gray-900 tracking-tight">
             Customer Management
@@ -234,79 +275,116 @@ export const Customers = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-            </div>
-          </div>
-          
-          {/* Column Headers */}
-          <div className="grid grid-cols-12 items-center bg-gray-50 px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-            <div 
-              className="col-span-4 flex items-center space-x-1 cursor-pointer hover:text-indigo-700"
-              onClick={() => handleSort("firstName")}
-            >
-              <span>Name</span>
-              {sortField === "firstName" && (
-                <svg className={`w-4 h-4 ${sortDirection === "asc" ? "" : "transform rotate-180"}`} fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 4.414l-3.293 3.293a1 1 0 01-1.414 0zM10 15.586l-3.293-3.293a1 1 0 11.414-1.414L10 14.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-              )}
-            </div>
-            <div className="col-span-4">Email</div>
-            <div 
-              className="col-span-4 flex items-center space-x-1 cursor-pointer hover:text-indigo-700"
-              onClick={() => handleSort("phone")}
-            >
-              <span>Phone</span>
-              {sortField === "phone" && (
-                <svg className={`w-4 h-4 ${sortDirection === "asc" ? "" : "transform rotate-180"}`} fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 4.414l-3.293 3.293a1 1 0 01-1.414 0zM10 15.586l-3.293-3.293a1 1 0 11.414-1.414L10 14.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-              )}
-            </div>
-          </div>
-          
-          {/* Customer Data */}
-          <div className="divide-y divide-gray-200">
-            {currentCustomers.length === 0 ? (
-              <div className="px-6 py-10 text-center">
-                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No customers found</h3>
-                <p className="mt-1 text-sm text-gray-500">Try adjusting your search criteria.</p>
+              {/* Sales Channel Filter Dropdown */}
+              <div>
+                <select
+                  className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  value={selectedChannel}
+                  onChange={e => setSelectedChannel(e.target.value)}
+                >
+                  <option value="all">All Sales Channels</option>
+                  {salesChannels.map(channel => (
+                    <option key={channel._id} value={channel._id}>{channel.name}</option>
+                  ))}
+                </select>
               </div>
-            ) : (
-              currentCustomers.map((customer) => (
-                <div key={customer._id} className="grid grid-cols-12 items-center px-6 py-4 hover:bg-gray-50 transition-colors">
-                  <div className="col-span-4">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                        <span className="text-indigo-800 font-medium text-sm">
-                          {customer.firstName?.charAt(0) || ''}{customer.lastName?.charAt(0) || ''}
-                        </span>
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {customer.firstName} {customer.lastName}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          ID: {customer.userId}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-span-4 text-sm text-gray-600">
-                    {customer.email || 'No email'}
-                  </div>
-                  <div className="col-span-4 text-sm text-gray-600">
-                    {customer.phone}
-                  </div>
-                </div>
-              ))
-            )}
+            </div>
           </div>
           
-          {/* Pagination */}
-          {currentCustomers.length > 0 && (
+          {/* Table - horizontally scrollable only for table */}
+          <div className="overflow-x-auto w-full">
+            <table className="min-w-[900px] w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left min-w-[180px]">Name</th>
+                  <th className="px-6 py-3 text-left min-w-[150px]">Phone</th>
+                  <th className="px-6 py-3 text-left min-w-[250px]">Email</th>
+                  <th
+                    className="px-6 py-3 text-left min-w-[100px] cursor-pointer select-none hover:text-indigo-700"
+                    onClick={() => handleSort('VIPDays')}
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>VIP Days</span>
+                      {sortField === 'VIPDays' && (
+                        <svg className={`w-4 h-4 ${sortDirection === 'asc' ? '' : 'transform rotate-180'}`} fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 4.414l-3.293 3.293a1 1 0 01-1.414 0zM10 15.586l-3.293-3.293a1 1 0 11.414-1.414L10 14.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    className="px-6 py-3 text-left min-w-[140px] cursor-pointer select-none hover:text-indigo-700"
+                    onClick={() => handleSort('VIPExpiry')}
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>VIP Expiry</span>
+                      {sortField === 'VIPExpiry' && (
+                        <svg className={`w-4 h-4 ${sortDirection === 'asc' ? '' : 'transform rotate-180'}`} fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 4.414l-3.293 3.293a1 1 0 01-1.414 0zM10 15.586l-3.293-3.293a1 1 0 11.414-1.414L10 14.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
+                  </th>
+                  <th className="px-6 py-3 text-left min-w-[200px]">Sales Channel</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {currentCustomers.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="text-center px-6 py-10 text-gray-500">
+                      No customers found.
+                    </td>
+                  </tr>
+                ) : (
+                  currentCustomers.map((customer) => (
+                    <tr key={customer._id} className="hover:bg-gray-50 transition-colors">
+                      <td className=" py-4 whitespace-nowrap">
+                        <div className="flex items-center ml-6">
+                          <div className="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                            <span className="text-indigo-800 font-medium text-sm">
+                              {customer.firstName?.charAt(0) || ''}{customer.lastName?.charAt(0) || ''}
+                            </span>
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {customer.firstName} {customer.lastName}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 text-sm text-center text-gray-700">{customer.phone || 'N/A'}</td>
+                      <td className="py-4 text-sm text-center text-gray-700 max-w-[230px] truncate " title={customer.email}>{customer.email || 'No email'}</td>
+                      <td className="py-4 text-sm text-center text-gray-700">{customer.VIPDays || 'N/A'}</td>
+                      <td className="py-4 text-sm text-center text-gray-700">{customer.VIPExpiry ? new Date(customer.VIPExpiry).toLocaleDateString() : 'N/A'}</td>
+                      <td className="py-4 text-sm text-center text-gray-700 max-w-[200px] flex items-center ml-6 gap-2" title={getSalesChannelName(customer.applicationId)}>
+                        {(() => {
+                          const channel = salesChannels.find((ch) => ch._id === customer.applicationId);
+                          return channel ? (
+                            <>
+                              {channel.logo?.secure_url && (
+                                <img
+                                  src={channel.logo.secure_url}
+                                  alt={channel.name}
+                                  className="inline-block h-6 w-6 rounded-full object-cover mr-2"
+                                  style={{ minWidth: 24, minHeight: 24 }}
+                                />
+                              )}
+                              <span>{channel.name}</span>
+                            </>
+                          ) : (
+                            customer.applicationId || 'N/A'
+                          );
+                        })()}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Pagination - only if more than 15 entries */}
+          {filteredCustomers.length > 15 && currentCustomers.length > 0 && (
             <div className="bg-white px-6 py-4 border-t border-gray-200 flex items-center justify-between">
               <div className="text-sm text-gray-700">
                 Showing <span className="font-medium">{startIndex + 1}</span> to <span className="font-medium">{Math.min(endIndex, filteredCustomers.length)}</span> of <span className="font-medium">{filteredCustomers.length}</span> results
