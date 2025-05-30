@@ -326,7 +326,16 @@ export const Customers = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {currentCustomers.length === 0 ? (
+                {pageLoading ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-10 text-center text-gray-500">
+                      <div className="flex justify-center items-center">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mr-2"></div>
+                        Loading customers...
+                      </div>
+                    </td>
+                  </tr>
+                ) : currentCustomers.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="text-center px-6 py-10 text-gray-500">
                       No customers found.

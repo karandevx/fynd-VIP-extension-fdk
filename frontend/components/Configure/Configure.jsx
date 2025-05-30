@@ -49,7 +49,6 @@ const Configure = () => {
       }
     } catch (error) {
       console.error("Error fetching configuration:", error);
-      toast.error("Failed to fetch configuration");
     } finally {
       setLoading(false);
     }
@@ -94,7 +93,7 @@ const Configure = () => {
             Access Config
           </button>
           <button
-            onClick={() => setActiveTab("vip")}
+            onClick={() => config?.clientId && config?.clientSecret && setActiveTab("vip")}
             className={`${
               activeTab === "vip"
                 ? "border-blue-500 text-blue-600 cursor-pointer"
@@ -104,7 +103,7 @@ const Configure = () => {
             VIP Products
           </button>
           <button
-            onClick={() => setActiveTab("benefits")}
+            onClick={() => config?.clientId && config?.clientSecret && config?.vipProducts?.length > 0 && setActiveTab("benefits")}
             className={`${
               activeTab === "benefits"
                 ? "border-blue-500 text-blue-600 cursor-pointer"
