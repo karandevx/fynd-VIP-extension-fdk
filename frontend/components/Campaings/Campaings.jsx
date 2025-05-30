@@ -131,12 +131,9 @@ console.log("showproductModal:", showProductModal);
       console.log("Fetched campaigns:", data);
       if (data.success) {
         setFetchedCampaigns(data.data);
-      } else {
-        throw new Error('Failed to fetch campaigns');
-      }
+      } 
     } catch (e) {
       console.error("Error fetching campaigns:", e);
-      toast.error('Failed to fetch campaigns');
     } finally {
       setIsCampaignsLoading(false);
     }
@@ -503,8 +500,8 @@ console.log("showproductModal:", showProductModal);
                               try {
                                 const response = await axios.post('https://create-campaign-af13fce1.serverless.boltic.app', {
                                   type: 'send_email',
-                                  companyId: company_id,
-                                  campaignId: campaign._id
+                                  companyId: campaign?.companyId,
+                                  campaignId: campaign?.campaignId,
                                 }, {
                                   headers: { 'Content-Type': 'application/json' }
                                 });

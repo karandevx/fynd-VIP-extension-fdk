@@ -338,7 +338,7 @@ const CampaignCreatePage = ({
                       <input
                         type="number"
                         id="preLaunchDays"
-                        {...register('preLaunchDays', { valueAsNumber: true, min: { value: 1, message: 'Pre-launch days must be positive' } })}
+                        {...register('preLaunchDays', { valueAsNumber: true, min: { value: 0, message: 'Pre-launch days must be positive' } })}
                         className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         defaultValue={0}
                       />
@@ -397,6 +397,7 @@ const CampaignCreatePage = ({
               ) : (
                 <EmailTemplateForm
                   setCurrentStep={setCurrentStep}
+                  setShowCreateCampaign={setShowCreateCampaign}
                   register={register}
                   errors={errors}
                   watch={watch}

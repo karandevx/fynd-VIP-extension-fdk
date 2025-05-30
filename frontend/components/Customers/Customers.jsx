@@ -27,12 +27,9 @@ export const Customers = () => {
       if (response.data.success) {
         setCustomers(response.data.data);
         setFilteredCustomers(response.data.data);
-      } else {
-        throw new Error('Failed to fetch customers');
-      }
+      } 
     } catch (error) {
       console.error('Error fetching customers:', error);
-      toast.error('Failed to fetch customers');
     } finally {
       setPageLoading(false);
     }

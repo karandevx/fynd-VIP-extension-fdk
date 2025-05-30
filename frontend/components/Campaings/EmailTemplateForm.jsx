@@ -3,7 +3,7 @@ import { useFormContext } from 'react-hook-form';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
-const EmailTemplateForm = ({ setCurrentStep, campaignId, companyId }) => {
+const EmailTemplateForm = ({ setCurrentStep, setShowCreateCampaign, campaignId, companyId }) => {
   const { register, formState: { errors }, watch, setValue, handleSubmit } = useFormContext();
 
   // State for generated email HTML, loading, and generation count
@@ -75,6 +75,7 @@ const EmailTemplateForm = ({ setCurrentStep, campaignId, companyId }) => {
       const payload = {
         type: 'generate_email',
         prompt: currentPrompt,
+        companyId,
       };
       const response = await axios.post('https://create-campaign-af13fce1.serverless.boltic.app', payload, {
         headers: { 'Content-Type': 'application/json' }
@@ -115,7 +116,9 @@ const EmailTemplateForm = ({ setCurrentStep, campaignId, companyId }) => {
       });
       if (response.data.success) {
         toast.success(triggerNow ? 'Campaign email scheduled and sent!' : 'Email template saved!');
+        setShowCreateCampaign(false);
         setCurrentStep && setCurrentStep(1); // Go back or close modal
+        setSh
       } else {
         throw new Error(response.data.message || 'Failed to schedule email');
       }
