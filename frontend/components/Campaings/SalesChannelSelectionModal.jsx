@@ -1,57 +1,84 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import { useParams } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import { useParams } from "react-router-dom";
+import { toast } from "react-toastify";
 
 const SalesChannelSelectionModal = ({
   showModal,
   onClose,
   selectedChannels, // Receive selectedChannels from parent
   onChannelSelect, // Receive channel selection handler from parent
-  onSelectAllChannels // Receive select all handler from parent
+  onSelectAllChannels, // Receive select all handler from parent
 }) => {
   const { company_id } = useParams();
   const [loading, setLoading] = useState(false);
   const [salesChannels, setSalesChannels] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchSalesChannels = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${import.meta.env.VITE_FETCH_BACKEND_URL}?module=salesChannels&companyId=${company_id}`, {
-        headers: {
-          'Content-Type': 'application/json'
+      const response = await axios.get(
+        `${
+          import.meta.env.VITE_FETCH_BACKEND_URL
+        }?module=salesChannels&companyId=${company_id}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
         }
-      });
+      );
       console.log("Fetched sales channels in modal:", response.data);
-      if (response.data.success) {
-        setSalesChannels(response.data.data);
+      const configResponse = await axios.get(
+        `${
+          import.meta.env.VITE_FETCH_BACKEND_URL
+        }?module=configs&companyId=${company_id}&queryType=scan`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Fetched configResponse:", configResponse.data);
+
+      if (response.data.success && configResponse.data.data[0]) {
+        const configData = configResponse.data.data[0]?.applicationIds || [];
+        const allChannels = response.data.data || [];
+        const configuredChannels = allChannels?.filter((channel) =>
+          configData.includes?.(channel.id)
+        );
+        setSalesChannels(configuredChannels);
       } else {
-        throw new Error('Failed to fetch sales channels');
+        throw new Error("Failed to fetch sales channels");
       }
     } catch (error) {
-      console.error('Error fetching sales channels:', error);
-      toast.error('Failed to fetch sales channels');
+      console.error("Error fetching sales channels:", error);
+      toast.error("Failed to fetch sales channels");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (showModal) { // Fetch channels only when modal is shown
+    if (showModal) {
+      // Fetch channels only when modal is shown
       fetchSalesChannels();
     }
   }, [showModal, company_id]);
 
   if (!showModal) return null;
 
-  const filteredChannels = salesChannels.filter(channel =>
-    channel.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    channel.domain?.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredChannels = salesChannels.filter(
+    (channel) =>
+      channel.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      channel.domain?.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Determine if all currently visible channels are selected
-  const allVisibleSelected = filteredChannels.length > 0 && filteredChannels.every(channel => selectedChannels.includes(channel.id));
+  const allVisibleSelected =
+    filteredChannels.length > 0 &&
+    filteredChannels.every((channel) => selectedChannels.includes(channel.id));
 
   return (
     <div className="fixed inset-0 bg-[#cbdaf561] bg-opacity-25 flex items-center justify-center p-4 z-50">
@@ -71,8 +98,18 @@ const SalesChannelSelectionModal = ({
           <div className="mb-4">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <svg
+                  className="h-5 w-5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
                 </svg>
               </div>
               <input
@@ -91,7 +128,11 @@ const SalesChannelSelectionModal = ({
               <input
                 type="checkbox"
                 checked={allVisibleSelected}
-                onChange={() => onSelectAllChannels(filteredChannels.map(channel => channel.id))} // Pass filtered channel IDs
+                onChange={() =>
+                  onSelectAllChannels(
+                    filteredChannels.map((channel) => channel.id)
+                  )
+                } // Pass filtered channel IDs
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
               <span className="ml-2 text-sm text-gray-900">{`Select All (${filteredChannels.length} visible)`}</span>
@@ -121,7 +162,7 @@ const SalesChannelSelectionModal = ({
                       onChange={() => onChannelSelect(channel.id)} // Use onChannelSelect prop
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3"
                     />
-                     <div className="flex-shrink-0 h-8 w-8 rounded-full bg-white border border-gray-200 overflow-hidden flex items-center justify-center mr-3">
+                    <div className="flex-shrink-0 h-8 w-8 rounded-full bg-white border border-gray-200 overflow-hidden flex items-center justify-center mr-3">
                       {channel.logo?.secure_url ? (
                         <img
                           src={channel.logo.secure_url}
@@ -136,9 +177,15 @@ const SalesChannelSelectionModal = ({
                         </div>
                       )}
                     </div>
-                    <div className='flex flex-col'>
-                      <span className="text-sm font-medium text-gray-900">{channel.name}</span>
-                      {channel.domain?.name && <span className="text-xs text-gray-500">{channel.domain.name}</span>}
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-gray-900">
+                        {channel.name}
+                      </span>
+                      {channel.domain?.name && (
+                        <span className="text-xs text-gray-500">
+                          {channel.domain.name}
+                        </span>
+                      )}
                     </div>
                   </label>
                 ))}
@@ -164,4 +211,4 @@ const SalesChannelSelectionModal = ({
   );
 };
 
-export default SalesChannelSelectionModal; 
+export default SalesChannelSelectionModal;
