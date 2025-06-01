@@ -2,11 +2,9 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { useNavigate } from "react-router-dom";
 
 const Benefits = ({ initialBenefits = [], applicationIds = [] }) => {
   const { company_id } = useParams();
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [salesChannels, setSalesChannels] = useState([]);
@@ -116,6 +114,23 @@ const Benefits = ({ initialBenefits = [], applicationIds = [] }) => {
       setSelectedChannels([]);
     } else {
       setSelectedChannels(filteredChannels.map((channel) => channel.id));
+    }
+  };
+  const uploadImageToCloudinary = async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", "hacktimus");
+
+    try {
+      const res = await axios.post(
+        `https://api.cloudinary.com/v1_1/${"dbjnbj1nx"}/image/upload`,
+        formData
+      );
+      return res.data.secure_url;
+    } catch (error) {
+      toast.error("Image upload failed");
+      console.error("Cloudinary upload error:", error);
+      return null;
     }
   };
 
@@ -406,88 +421,68 @@ const Benefits = ({ initialBenefits = [], applicationIds = [] }) => {
         <div className="space-y-6">
           {benefits.map((benefit, index) => (
             <div
-              key={benefit.title}
-              className={`p-4 border border-gray-200 rounded-lg cursor-pointer  ${
-                benefit.isEnabled ? "bg-gray-50" : ""
-              }`}
+              key={index}
+              className="border p-4 mb-4 rounded-md shadow-sm bg-gray-50"
             >
-              <div className="flex items-start space-x-3">
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="font-medium">
+                  {benefit.title.replace(/_/g, " ")}
+                </h4>
                 <input
                   type="checkbox"
                   checked={benefit.isEnabled}
                   onChange={() => handleBenefitToggle(index)}
                   disabled={isConfigured}
-                  className="h-4 w-4 mt-1 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
                 />
-                <div className="flex-1">
-                  <h4 className="font-medium text-gray-900">{benefit.title}</h4>
-
-                  {benefit.isEnabled && (
-                    <div className="mt-3 space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Description
-                        </label>
-                        {isConfigured ? (
-                          <div className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-700">
-                            {benefit.description || "No description provided"}
-                          </div>
-                        ) : (
-                          <textarea
-                            value={benefit.description}
-                            onChange={(e) =>
-                              handleBenefitChange(
-                                index,
-                                "description",
-                                e.target.value
-                              )
-                            }
-                            rows={3}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Enter description"
-                          />
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Image URL
-                        </label>
-                        {isConfigured ? (
-                          <div className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-700">
-                            {benefit.img || "No image URL provided"}
-                          </div>
-                        ) : (
-                          <input
-                            type="text"
-                            value={benefit.img}
-                            onChange={(e) =>
-                              handleBenefitChange(index, "img", e.target.value)
-                            }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="Enter image URL"
-                          />
-                        )}
-                      </div>
-
-                      {benefit.img && (
-                        <div className="mt-2">
-                          <img
-                            src={benefit.img}
-                            alt={benefit.title}
-                            className="h-12 w-12 object-cover rounded-lg"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src =
-                                "https://via.placeholder.com/48?text=No+Image";
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
               </div>
+              {benefit.isEnabled && (
+                <div className="space-y-3">
+                  <textarea
+                    placeholder="Enter description"
+                    className="w-full border p-2 rounded-md"
+                    value={benefit.description}
+                    onChange={(e) =>
+                      handleBenefitChange(index, "description", e.target.value)
+                    }
+                    disabled={isConfigured}
+                  />
+                  <div className="flex flex-col items-start space-y-2 w-full">
+                    {benefit?.img?.length && (
+                      <img
+                        src={benefit.img}
+                        alt="    Benefit Preview   "
+                        className="h-24 w-auto object-cover rounded-md shadow"
+                      />
+                    )}
+
+                    <label
+                      className={`cursor-pointer w-full flex items-center justify-center px-4 py-2 bg-blue-100  text-blue-600 font-medium rounded-lg border border-blue-300 transition-colors duration-200 ${
+                        isConfigured
+                          ? "cursor-not-allowed opacity-50"
+                          : "hover:bg-blue-200"
+                      }`}
+                    >
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files[0];
+                          if (!file) return;
+                          const imageUrl = await uploadImageToCloudinary(file);
+                          if (imageUrl) {
+                            console.log("Image URL:", imageUrl);
+                            handleBenefitChange(index, "img", imageUrl);
+                            toast.success("Image uploaded successfully");
+                          }
+                        }}
+                        disabled={isConfigured}
+                      />
+                      📷 Upload Image
+                    </label>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
