@@ -11,6 +11,7 @@ export const Customers = () => {
   const dispatch = useDispatch();
   const { items: customers, loading: pageLoading, error } = useSelector((state) => state.customers);
   const { items: salesChannels } = useSelector((state) => state.salesChannels);
+  const configuredChannelIds = useSelector((state) => state.configure.salesChannels);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState("firstName");
   const [sortDirection, setSortDirection] = useState("asc");
@@ -36,9 +37,12 @@ export const Customers = () => {
     }
   };
 
-  // Map applicationId to sales channel name
+  // Only show channels that are in configure.salesChannels
+  const configuredChannels = salesChannels.filter(channel => configuredChannelIds.includes(channel.id));
+
+  // Map applicationId to sales channel name (from configuredChannels only)
   const getSalesChannelName = (id) => {
-    const channel = salesChannels.find((ch) => ch._id === id);
+    const channel = configuredChannels.find((ch) => ch._id === id || ch.id === id);
     return channel ? channel.name : id;
   };
 
@@ -259,7 +263,7 @@ export const Customers = () => {
                   onChange={e => setSelectedChannel(e.target.value)}
                 >
                   <option value="all">All Sales Channels</option>
-                  {salesChannels.map(channel => (
+                  {configuredChannels.map(channel => (
                     <option key={channel._id} value={channel._id}>{channel.name}</option>
                   ))}
                 </select>
@@ -343,7 +347,7 @@ export const Customers = () => {
                       <td className="py-4 text-sm text-center text-gray-700">{customer.VIPExpiry ? new Date(customer.VIPExpiry).toLocaleDateString() : 'N/A'}</td>
                       <td className="py-4 text-sm text-center text-gray-700 max-w-[200px] flex items-center ml-6 gap-2" title={getSalesChannelName(customer.applicationId)}>
                         {(() => {
-                          const channel = salesChannels.find((ch) => ch._id === customer.applicationId);
+                          const channel = configuredChannels.find((ch) => ch._id === customer.applicationId || ch.id === customer.applicationId);
                           return channel ? (
                             <>
                               {channel.logo?.secure_url && (

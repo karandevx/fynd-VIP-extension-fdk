@@ -1,4 +1,5 @@
 import React from 'react';
+import { HiOutlineRefresh } from 'react-icons/hi';
 
 const ProductSelectionModal = ({
   showModal,
@@ -13,11 +14,41 @@ const ProductSelectionModal = ({
   productSortField,
   setProductSortField,
   productSortDirection,
-  setProductSortDirection
+  setProductSortDirection,
+  onRefresh
 }) => {
   if (!showModal) return null;
 
-  const allVisibleSelected = products?.length > 0 && products.every(p => selectedProducts?.includes(p?.uid));
+  // Filter products by search term
+  let filteredProducts = products.filter(product => {
+    const searchTermLower = productSearchTerm.toLowerCase();
+    return (
+      product.name.toLowerCase().includes(searchTermLower) ||
+      product.slug?.toLowerCase().includes(searchTermLower) ||
+      product.item_code?.toLowerCase().includes(searchTermLower) ||
+      (product.brand && product.brand.name.toLowerCase().includes(searchTermLower))
+    );
+  });
+
+  // Sort products
+  filteredProducts = filteredProducts.sort((a, b) => {
+    let aValue, bValue;
+    if (productSortField === 'effective_price') {
+      aValue = a.price?.effective?.min || 0;
+      bValue = b.price?.effective?.min || 0;
+    } else if (productSortField === 'brand_name') {
+      aValue = a.brand?.name || '';
+      bValue = b.brand?.name || '';
+    } else {
+      aValue = a[productSortField] || '';
+      bValue = b[productSortField] || '';
+    }
+    if (aValue < bValue) return productSortDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return productSortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const allVisibleSelected = filteredProducts?.length > 0 && filteredProducts.every(p => selectedProducts?.includes(p?.uid));
 
   const handleProductSort = (field) => {
     if (productSortField === field) {
@@ -34,12 +65,23 @@ const ProductSelectionModal = ({
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold">Select Products</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              ×
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onRefresh}
+                title="Refresh Products"
+                className="p-2 rounded-full bg-gray-100 hover:bg-indigo-200 transition-colors border border-gray-200 shadow-sm flex items-center justify-center"
+                aria-label="Refresh Products"
+                disabled={isLoading}
+              >
+                <HiOutlineRefresh className={`text-indigo-600 ${isLoading ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={onClose}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
           </div>
 
           <div className="mb-4 space-y-4">
@@ -83,10 +125,10 @@ const ProductSelectionModal = ({
               <input
                 type="checkbox"
                 checked={allVisibleSelected}
-                onChange={() => onSelectAllProducts(products.map(p => p.uid))}
+                onChange={() => onSelectAllProducts(filteredProducts.map(p => p.uid))}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
-              <span className="ml-2">{`Select All (${products?.length} visible)`}</span>
+              <span className="ml-2">{`Select All (${filteredProducts?.length} visible)`}</span>
             </label>
           </div>
 
@@ -101,7 +143,7 @@ const ProductSelectionModal = ({
               </div>
             ) : products?.length > 0 ? (
               <div className="divide-y divide-gray-200">
-                {products.map((product) => (
+                {filteredProducts.map((product) => (
                   <label
                     key={product.uid}
                     className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
