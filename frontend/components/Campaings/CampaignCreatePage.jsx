@@ -6,15 +6,16 @@ import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import SalesChannelSelectionModal from './SalesChannelSelectionModal';
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchProducts } from '../../src/features/productsSlice';
+import { HiOutlineRefresh } from 'react-icons/hi';
+import ProductSelectionModal from './ProductSelectionModal';
 
 const CampaignCreatePage = ({
   currentStep,
   setCurrentStep,
   setShowCreateCampaign,
-  setShowProductModal,
-  // setShowCustomerModal, // Remove or comment out the old prop if it's no longer used
   selectedProducts,
-  selectedCustomers, // This prop is likely no longer needed if state is internal
   methods,
   onSubmit: handleFormSubmit,
   errors,
@@ -22,11 +23,14 @@ const CampaignCreatePage = ({
   register,
   handleIndividualProductSelect,
   handleIndividualCustomerSelect, // This handler is used for channel selection
-  handleSelectAllCustomers // This handler is used for select all channels
+  handleSelectAllCustomers, // This handler is used for select all channels
+  handleSelectAllProducts // This handler is used for select all products
 }) => {
   
   const { handleSubmit, getValues } = methods;
   const { company_id } = useParams();
+  const dispatch = useDispatch();
+  const { items: products, loading: productsLoading } = useSelector((state) => state.products);
 
   const [showSaleschannelModal, setShowSaleschannelModal] = useState(false);
 
@@ -39,6 +43,10 @@ const CampaignCreatePage = ({
   const [customerError, setCustomerError] = useState(''); // Keep name for error message consistency
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [campaignId, setCampaignId] = useState(null);
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [productSearchTerm, setProductSearchTerm] = useState('');
+  const [productSortField, setProductSortField] = useState('name');
+  const [productSortDirection, setProductSortDirection] = useState('asc');
 
   // Update handlers to use selectedSaleschannels
   const handleIndividualSalesChannelSelect = (channelId) => {
@@ -69,6 +77,21 @@ const CampaignCreatePage = ({
         return Array.from(newSelected);
       }
     });
+  };
+
+  // Handler to open product modal and fetch products if not loaded
+  const handleOpenProductModal = () => {
+    setShowProductModal(true);
+    if (products.length === 0 && company_id) {
+      dispatch(fetchProducts({ company_id, application_id: undefined }));
+    }
+  };
+
+  // Handler to refresh products
+  const handleRefreshProducts = () => {
+    if (company_id) {
+      dispatch(fetchProducts({ company_id, application_id: undefined }));
+    }
   };
 
   const onSubmit = async (data) => {
@@ -352,7 +375,7 @@ const CampaignCreatePage = ({
                     <label className="block text-sm font-medium text-gray-700 mb-1">Products</label>
                     <button
                       type="button"
-                      onClick={() => setShowProductModal(true)}
+                      onClick={handleOpenProductModal}
                       className="flex justify-between items-center w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 bg-white hover:bg-gray-50 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
                     >
                       <span>{selectedProducts.length} products selected</span>
@@ -416,6 +439,23 @@ const CampaignCreatePage = ({
         selectedChannels={selectedSaleschannels}
         onChannelSelect={handleIndividualSalesChannelSelect}
         onSelectAllChannels={handleSelectAllSalesChannels}
+      />
+
+      <ProductSelectionModal
+        showModal={showProductModal}
+        onClose={() => setShowProductModal(false)}
+        selectedProducts={selectedProducts}
+        onProductSelect={handleIndividualProductSelect}
+        onSelectAllProducts={() => handleSelectAllProducts(products.map(p => p.uid))}
+        products={products}
+        isLoading={productsLoading}
+        productSearchTerm={productSearchTerm}
+        setProductSearchTerm={setProductSearchTerm}
+        productSortField={productSortField}
+        setProductSortField={setProductSortField}
+        productSortDirection={productSortDirection}
+        setProductSortDirection={setProductSortDirection}
+        onRefresh={handleRefreshProducts}
       />
 
     </div>

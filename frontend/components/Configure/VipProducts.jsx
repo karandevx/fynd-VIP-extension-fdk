@@ -1,68 +1,58 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
-import urlJoin from "url-join";
 import { useParams } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import { fetchAllVipProducts } from "../../src/features/vipProductsSlice";
+import { saveVipProducts } from "../../src/features/configureSlice";
 import { toast } from "react-toastify";
 
-const VipProducts = ({ initialProducts = [], setActiveTab, disabled }) => {
+const VipProducts = ({ setActiveTab, disabled }) => {
   const { company_id } = useParams();
-  const [productList, setProductList] = useState([]);
-  const [selectedProducts, setSelectedProducts] = useState(initialProducts);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const EXAMPLE_MAIN_URL = window.location.origin;
+  const dispatch = useDispatch();
+  const { items: allVipProducts, loading } = useSelector((state) => state.vipProducts);
+  const { vipProducts: selectedVipProductUids, saving } = useSelector((state) => state.configure);
+  const [selectedProducts, setSelectedProducts] = useState(selectedVipProductUids || []);
   const isConfigured = disabled;
 
-  const fetchProducts = async () => {
-    setLoading(true);
-    try {
-      const { data } = await axios.get(
-        urlJoin(EXAMPLE_MAIN_URL, "/api/products/vip-products"),
-        {
-          headers: {
-            "x-company-id": company_id,
-          },
-        }
-      );
-      console.log("Fetched products:", data);
-      setProductList(data.items);
-    } catch (e) {
-      console.error("Error fetching products:", e);
-      toast.error("Failed to fetch VIP products");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchProducts();
+    if (company_id && (!allVipProducts || allVipProducts.length === 0)) {
+      dispatch(fetchAllVipProducts(company_id));
+    }
+    // eslint-disable-next-line
   }, [company_id]);
 
-  const handleProductSelect = async (productUid) => {
-    console.log("selectedProducts :", selectedProducts);
-    console.log("Product selected:", productUid);
+  useEffect(() => {
+    setSelectedProducts(selectedVipProductUids || []);
+  }, [selectedVipProductUids]);
+
+  // Sort all products: selected first, then unselected
+  const sortedProducts = [...allVipProducts].sort((a, b) => {
+    const aSelected = selectedProducts.includes(a.uid);
+    const bSelected = selectedProducts.includes(b.uid);
+    if (aSelected && !bSelected) return -1;
+    if (!aSelected && bSelected) return 1;
+    return 0;
+  });
+
+  const handleProductSelect = (productUid) => {
     if (isConfigured) return;
-    console.log("after return Product selected:", productUid);
-    setSelectedProducts((prev) => {
-      if (prev.includes(productUid)) {
-        return prev.filter((uid) => uid !== productUid);
-      } else {
-        return [...prev, productUid];
-      }
-    });
+    setSelectedProducts((prev) =>
+      prev.includes(productUid)
+        ? prev.filter((uid) => uid !== productUid)
+        : [...prev, productUid]
+    );
   };
 
-  const handleRowClick = async (productUid) => {
+  const handleRowClick = (productUid) => {
     if (isConfigured) return;
     handleProductSelect(productUid);
   };
 
   const handleSelectAll = () => {
     if (isConfigured) return;
-    if (selectedProducts?.length === productList?.length) {
+    if (selectedProducts?.length === allVipProducts?.length) {
       setSelectedProducts([]);
     } else {
-      setSelectedProducts(productList.map((product) => product.uid));
+      setSelectedProducts(allVipProducts.map((product) => product.uid));
     }
   };
 
@@ -71,38 +61,12 @@ const VipProducts = ({ initialProducts = [], setActiveTab, disabled }) => {
       toast.warning("Please select at least one product");
       return;
     }
-    setSaving(true);
-    console.log({
-      type: "product_create",
-      companyId: company_id,
-      vipProducts: selectedProducts,
-    });
     try {
-      const response = await axios.post(
-        import.meta.env.VITE_BACKEND_URL,
-        {
-          type: "product_create",
-          companyId: company_id,
-          vipProducts: selectedProducts,
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.status === 200) {
-        toast.success("VIP products saved successfully");
-        setActiveTab("benefits");
-      } else {
-        throw new Error("Failed to save VIP products");
-      }
+      await dispatch(saveVipProducts({ company_id, vipProducts: selectedProducts })).unwrap();
+      toast.success("VIP products saved successfully");
+      if (setActiveTab) setActiveTab("benefits");
     } catch (error) {
-      console.error("Error saving VIP products:", error);
       toast.error("Failed to save VIP products");
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -137,7 +101,7 @@ const VipProducts = ({ initialProducts = [], setActiveTab, disabled }) => {
               onClick={handleSelectAll}
               className="text-blue-600 hover:text-blue-700 text-sm font-medium cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {selectedProducts?.length === productList?.length
+              {selectedProducts?.length === allVipProducts?.length
                 ? "Deselect All"
                 : "Select All"}
             </button>
@@ -197,7 +161,7 @@ const VipProducts = ({ initialProducts = [], setActiveTab, disabled }) => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {productList?.length === 0 ? (
+              {sortedProducts?.length === 0 ? (
                 <tr>
                   <td
                     colSpan={isConfigured ? "4" : "5"}
@@ -207,16 +171,8 @@ const VipProducts = ({ initialProducts = [], setActiveTab, disabled }) => {
                   </td>
                 </tr>
               ) : (
-                productList
-                  ?.sort((a, b) => {
-                    // Sort selected products to the top
-                    const aSelected = selectedProducts.includes(a.uid);
-                    const bSelected = selectedProducts.includes(b.uid);
-                    if (aSelected && !bSelected) return -1;
-                    if (!aSelected && bSelected) return 1;
-                    return 0;
-                  })
-                  .map((product) => (
+                sortedProducts
+                  ?.map((product) => (
                     <tr
                       key={product.uid}
                       className={`${

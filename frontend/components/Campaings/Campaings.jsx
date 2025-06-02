@@ -12,6 +12,9 @@ import CampaignStepper from './CampaignStepper';
 import EmailTemplateForm from './EmailTemplateForm';
 import CampaignCreatePage from './CampaignCreatePage';
 import { toast } from 'react-toastify';
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchCampaigns } from '../../src/features/campaignsSlice';
+import { HiOutlineRefresh } from 'react-icons/hi';
 
 const SIDEBAR_WIDTH = '16rem';
 const EXAMPLE_MAIN_URL = window.location.origin;
@@ -19,6 +22,8 @@ const EXAMPLE_MAIN_URL = window.location.origin;
 
 const Campaigns = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { items: campaigns, loading: isCampaignsLoading, error } = useSelector((state) => state.campaigns);
   const [showCreateCampaign, setShowCreateCampaign] = useState(false);
   const [showEmailTemplate, setShowEmailTemplate] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
@@ -35,18 +40,14 @@ const Campaigns = () => {
   const [selectedSaleschannels, setSelectedSaleschannels] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [products, setProductList] = useState([]);
-  const [fetchedCampaigns, setFetchedCampaigns] = useState([]);
-  const [isCampaignsLoading, setIsCampaignsLoading] = useState(false);
-
-console.log("showproductModal:", showProductModal);
-
+  const { application_id, company_id } = useParams();
+  
   // State for Customer Modal
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
   const [customerSortField, setCustomerSortField] = useState('firstname');
   const [customerSortDirection, setCustomerSortDirection] = useState('asc');
   const [customerFilterVip, setCustomerFilterVip] = useState('all');
-    const { application_id, company_id } = useParams();
-  
+   
   // State for Product Modal
   const [productSearchTerm, setProductSearchTerm] = useState('');
   const [productSortField, setProductSortField] = useState('name');
@@ -75,69 +76,13 @@ console.log("showproductModal:", showProductModal);
   const { register, handleSubmit, formState: { errors }, watch, setValue } = methods;
 
   useEffect(() => {
-    isApplicationLaunch() ? fetchApplicationProducts() : fetchProducts();
-  }, [application_id]);
-
-  useEffect(() => {
-    fetchCampaigns();
-  }, [company_id]);
-
+    if (company_id && campaigns.length === 0) {
+      dispatch(fetchCampaigns(company_id));
+    }
+  }, [company_id, dispatch, campaigns.length]);
 
   const isApplicationLaunch = () => !!application_id;
 
-
-  const fetchProducts = async () => {
-    // setPageLoading(true);
-    try {
-      const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, '/api/products/'),{
-        headers: {
-          "x-company-id": company_id,
-        }
-      });
-      console.log("Fetched products:", data);
-      setProductList(data.items);
-    } catch (e) {
-      console.error("Error fetching products:", e);
-    } finally {
-      // setPageLoading(false);
-    }
-  };
-
-  const fetchApplicationProducts = async () => {
-    // setPageLoading(true);
-    try {
-      const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, `/api/products/application/${application_id}`),{
-        headers: {
-          "x-company-id": company_id,
-        }
-      });
-      console.log("Fetched application products:", data);
-      setProductList(data.items);
-    } catch (e) {
-      console.error("Error fetching application products:", e);
-    } finally {
-      // setPageLoading(false);
-    }
-  };
-
-  const fetchCampaigns = async () => {
-    setIsCampaignsLoading(true);
-    try {
-      const { data } = await axios.get(`https://fetch-db-data-d9ca324b.serverless.boltic.app?module=campaigns&companyId=${company_id}&queryType=scan`, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      console.log("Fetched campaigns:", data);
-      if (data.success) {
-        setFetchedCampaigns(data.data);
-      } 
-    } catch (e) {
-      console.error("Error fetching campaigns:", e);
-    } finally {
-      setIsCampaignsLoading(false);
-    }
-  };
 
   console.log("Products:", products);
 
@@ -170,8 +115,8 @@ console.log("showproductModal:", showProductModal);
 
   const filteredAndSortedCampaigns = campaigns
     ?.filter(campaign => {
-      const matchesSearch = campaign?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          campaign?.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = campaign?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          campaign?.description?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesFilter = filterStatus === 'all' || campaign?.status === filterStatus;
       return matchesSearch && matchesFilter;
     })
@@ -340,8 +285,34 @@ console.log("showproductModal:", showProductModal);
     }
   };
 
+  // Add refresh handler
+  const handleRefresh = () => {
+    if (company_id) {
+      dispatch(fetchCampaigns(company_id));
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Header with title and refresh button */}
+      <div className="flex justify-between items-center mb-8 mx-6">
+        <h3 className="!text-2xl font-extrabold text-gray-900 tracking-tight">
+          Campaign Management
+          <span className="block !text-xl tracking-normal font-medium text-gray-500 mt-1">
+            {filteredAndSortedCampaigns.length} total campaigns
+          </span>
+        </h3>
+        <button
+          onClick={handleRefresh}
+          title="Refresh Data"
+          className="ml-4 p-2 rounded-full bg-gray-100 hover:bg-indigo-200 transition-colors border border-gray-200 shadow-sm flex items-center justify-center"
+          aria-label="Refresh Data"
+          disabled={isCampaignsLoading}
+        >
+          <HiOutlineRefresh className={`text-indigo-600 ${isCampaignsLoading ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
+
       {showCreateCampaign ? (
         <CampaignCreatePage
           currentStep={currentStep}
@@ -475,7 +446,7 @@ console.log("showproductModal:", showProductModal);
                       </td>
                     </tr>
                   ) : (
-                    fetchedCampaigns.map((campaign) => (
+                    filteredAndSortedCampaigns.map((campaign) => (
                       <tr key={campaign?._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{campaign?.name||"" }</div>
@@ -525,7 +496,7 @@ console.log("showproductModal:", showProductModal);
                       </tr>
                     ))
                   )}
-                  {!isCampaignsLoading && fetchedCampaigns.length === 0 && (
+                  {!isCampaignsLoading && filteredAndSortedCampaigns.length === 0 && (
                     <tr>
                       <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
                         No campaigns found
