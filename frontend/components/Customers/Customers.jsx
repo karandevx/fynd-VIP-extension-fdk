@@ -1,61 +1,40 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { useParams } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import { fetchCustomers } from "../../src/features/customersSlice";
+import { fetchSalesChannels } from "../../src/features/salesChannelsSlice";
 import { toast } from "react-toastify";
+import { HiOutlineRefresh } from "react-icons/hi";
 
 export const Customers = () => {
   const { company_id } = useParams();
-  const [pageLoading, setPageLoading] = useState(true);
+  const dispatch = useDispatch();
+  const { items: customers, loading: pageLoading, error } = useSelector((state) => state.customers);
+  const { items: salesChannels } = useSelector((state) => state.salesChannels);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState("firstName");
   const [sortDirection, setSortDirection] = useState("asc");
-  const [customers, setCustomers] = useState([]);
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const [salesChannels, setSalesChannels] = useState([]);
   const [selectedChannel, setSelectedChannel] = useState('all');
 
-  const fetchCustomers = async () => {
-    setPageLoading(true);
-    try {
-      const response = await axios.get(`${import.meta.env.VITE_FETCH_BACKEND_URL}?module=users&companyId=${company_id}&queryType=scan`, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      if (response.data.success) {
-        setCustomers(response.data.data);
-        setFilteredCustomers(response.data.data);
-      } 
-    } catch (error) {
-      console.error('Error fetching customers:', error);
-    } finally {
-      setPageLoading(false);
+  const customersLoaded = customers.length > 0;
+  const salesChannelsLoaded = salesChannels.length > 0;
+
+  useEffect(() => {
+    if (company_id) {
+      if (!customersLoaded) dispatch(fetchCustomers(company_id));
+      if (!salesChannelsLoaded) dispatch(fetchSalesChannels(company_id));
+    }
+  }, [company_id, dispatch, customersLoaded, salesChannelsLoaded]);
+
+  const handleRefresh = () => {
+    if (company_id) {
+      dispatch(fetchCustomers(company_id));
+      dispatch(fetchSalesChannels(company_id));
     }
   };
-
-  useEffect(() => {
-    fetchCustomers();
-  }, [company_id]);
-
-  // Fetch sales channels on mount
-  useEffect(() => {
-    const fetchSalesChannels = async () => {
-      try {
-        const response = await axios.get(
-          `https://fetch-db-data-d9ca324b.serverless.boltic.app?module=salesChannels&companyId=${company_id}`,
-          { headers: { 'Content-Type': 'application/json' } }
-        );
-        if (response.data.success) {
-          setSalesChannels(response.data.data);
-        }
-      } catch (err) {
-        // Optionally handle error
-      }
-    };
-    fetchSalesChannels();
-  }, [company_id]);
 
   // Map applicationId to sales channel name
   const getSalesChannelName = (id) => {
@@ -236,22 +215,22 @@ export const Customers = () => {
     <div className="min-h-screen ">
       <div className="mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="!text-2xl text-center w-full font-extrabold text-gray-900 tracking-tight">
-            Customer Management
-            <span className="block !text-xl tracking-normal font-medium text-gray-500 mt-1">
-              {filteredCustomers.length} total customers
-            </span>
-          </h1>
-          
-          {pageLoading ? (
-            <div className="bg-white p-2 rounded-md shadow flex items-center">
-              <svg className="animate-spin h-5 w-5 text-indigo-600 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <span className="text-sm font-medium text-gray-700">Loading...</span>
-            </div>
-          ) : null}
+          <div className="flex items-center w-full justify-between mx-6">
+            <h1 className="!text-2xl font-extrabold text-gray-900 tracking-tight">
+              Customer Management
+              <span className="block !text-xl tracking-normal font-medium text-gray-500 mt-1">
+                {filteredCustomers.length} total customers
+              </span>
+            </h1>
+            <button
+              onClick={handleRefresh}
+              title="Refresh Data"
+              className="ml-4 p-2 rounded-full bg-gray-100 hover:bg-indigo-200 transition-colors border border-gray-200 shadow-sm flex items-center justify-center"
+              aria-label="Refresh Data"
+            >
+              <HiOutlineRefresh className=" text-indigo-600" />
+            </button>
+          </div>
         </div>
         
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -358,7 +337,7 @@ export const Customers = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 text-sm text-center text-gray-700">{customer.phone || 'N/A'}</td>
+                      <td className="py-4 text-sm text-center text-gray-700 truncate">{customer.phone || 'N/A'}</td>
                       <td className="py-4 text-sm text-center text-gray-700 max-w-[230px] truncate " title={customer.email}>{customer.email || 'No email'}</td>
                       <td className="py-4 text-sm text-center text-gray-700">{customer.VIPDays || 'N/A'}</td>
                       <td className="py-4 text-sm text-center text-gray-700">{customer.VIPExpiry ? new Date(customer.VIPExpiry).toLocaleDateString() : 'N/A'}</td>
