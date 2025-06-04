@@ -2,8 +2,10 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useParams } from "react-router-dom";
 import { toast } from "react-toastify";
+import urlJoin from "url-join";
 
-const Benefits = ({ initialBenefits = [], applicationIds = [] }) => {
+const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
+  const EXAMPLE_MAIN_URL = window.location.origin;
   const { company_id } = useParams();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -11,12 +13,12 @@ const Benefits = ({ initialBenefits = [], applicationIds = [] }) => {
   const [selectedChannels, setSelectedChannels] = useState(applicationIds);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [benefits, setBenefits] = useState(
-    initialBenefits.length > 0
-      ? initialBenefits
+  const [plans, setPlans] = useState(
+    initialPlans.length > 0
+      ? initialPlans
       : [
           {
-            title: "FLASH_SALE",
+            title: "PRODUCT_EXCLUSIVITY",
             isEnabled: false,
             description: "",
             img: "",
@@ -28,7 +30,7 @@ const Benefits = ({ initialBenefits = [], applicationIds = [] }) => {
             img: "",
           },
           {
-            title: "ASK_FOR_INVENTORY",
+            title: "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS",
             isEnabled: false,
             description: "",
             img: "",
@@ -36,30 +38,25 @@ const Benefits = ({ initialBenefits = [], applicationIds = [] }) => {
         ]
   );
   const [isConfigured, setIsConfigured] = useState(
-    initialBenefits.length > 0 && applicationIds.length > 0 ? true : false
+    initialPlans.length > 0 && applicationIds.length > 0 ? true : false
   );
 
   const fetchSalesChannels = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${
-          import.meta.env.VITE_FETCH_BACKEND_URL
-        }?module=salesChannels&companyId=${company_id}`,
+      const { data } = await axios.get(
+        urlJoin(EXAMPLE_MAIN_URL, "/api/sales"),
         {
           headers: {
-            "Content-Type": "application/json",
+            "x-company-id": company_id,
           },
         }
       );
-      if (response.data.success) {
-        setSalesChannels(response.data.data);
-      } else {
-        throw new Error("Failed to fetch sales channels");
-      }
-    } catch (error) {
-      console.error("Error fetching sales channels:", error);
-      toast.error("Failed to fetch sales channels");
+      console.log("Fetched sales:", data);
+      setSalesChannels(data.items || []);
+    } catch (e) {
+      console.error("Error fetching sales:", e);
+      toast.error("Failed to fetch sales");
     } finally {
       setLoading(false);
     }
@@ -69,31 +66,31 @@ const Benefits = ({ initialBenefits = [], applicationIds = [] }) => {
     fetchSalesChannels();
   }, [company_id]);
 
-  const handleBenefitToggle = (index) => {
+  const handlePlansToggle = (index) => {
     if (isConfigured) return;
-    setBenefits((prev) => {
-      const newBenefits = [...prev];
-      newBenefits[index] = {
-        ...newBenefits[index],
-        isEnabled: !newBenefits[index].isEnabled,
-        description: !newBenefits[index].isEnabled
+    setPlans((prev) => {
+      const newPlan = [...prev];
+      newPlan[index] = {
+        ...newPlan[index],
+        isEnabled: !newPlan[index].isEnabled,
+        description: !newPlan[index].isEnabled
           ? ""
-          : newBenefits[index].description,
-        img: !newBenefits[index].isEnabled ? "" : newBenefits[index].img,
+          : newPlan[index].description,
+        img: !newPlan[index].isEnabled ? "" : newPlan[index].img,
       };
-      return newBenefits;
+      return newPlan;
     });
   };
 
-  const handleBenefitChange = (index, field, value) => {
+  const handlePlanChange = (index, field, value) => {
     if (isConfigured) return;
-    setBenefits((prev) => {
-      const newBenefits = [...prev];
-      newBenefits[index] = {
-        ...newBenefits[index],
+    setPlans((prev) => {
+      const newPlan = [...prev];
+      newPlan[index] = {
+        ...newPlan[index],
         [field]: value,
       };
-      return newBenefits;
+      return newPlan;
     });
   };
 
@@ -141,39 +138,36 @@ const Benefits = ({ initialBenefits = [], applicationIds = [] }) => {
       return;
     }
 
-    setSaving(true);
+    //  setSaving(true);
     try {
-      const formattedBenefits = benefits.map((benefit) => ({
-        title: benefit.title,
-        isEnabled: benefit.isEnabled,
-        description: benefit.isEnabled ? benefit.description : "",
-        img: benefit.isEnabled ? benefit.img : "",
+      const configuredPlans = plans?.map((plan) => ({
+        title: plan.title,
+        isEnabled: plan.isEnabled,
+        description: plan.isEnabled ? plan.description : "",
+        img: plan.isEnabled ? plan.img : "",
       }));
-
-      const response = await axios.post(
-        import.meta.env.VITE_BACKEND_URL,
+      const { data } = await axios.post(
+        urlJoin(EXAMPLE_MAIN_URL, "/api/sales/configure-plans"),
         {
-          type: "feature_benefits",
-          companyId: company_id,
-          benefits: formattedBenefits,
-          applicationIds: selectedChannels,
+          salesChannels: selectedChannels,
+          configuredPlans: configuredPlans,
         },
         {
           headers: {
-            "Content-Type": "application/json",
+            "x-company-id": company_id,
           },
         }
       );
 
-      if (response.data.success) {
-        toast.success("Benefits saved successfully");
+      if (data.data.success) {
+        toast.success("Plans saved successfully");
         setIsConfigured(true);
       } else {
-        throw new Error("Failed to save benefits");
+        throw new Error("Failed to save Plans");
       }
     } catch (error) {
-      console.error("Error saving benefits:", error);
-      toast.error("Failed to save benefits");
+      console.error("Error saving plans:", error);
+      toast.error("Failed to save plans");
     } finally {
       setSaving(false);
     }
@@ -200,7 +194,7 @@ const Benefits = ({ initialBenefits = [], applicationIds = [] }) => {
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center space-x-3">
           <h2 className="text-lg font-semibold text-gray-900">
-            VIP Benefits Configuration
+            VIP Plans Configuration
           </h2>
           {isConfigured && (
             <span className="px-3 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full">
@@ -413,46 +407,46 @@ const Benefits = ({ initialBenefits = [], applicationIds = [] }) => {
         </div>
       </div>
 
-      {/* Benefits Section */}
+      {/* Plans Section */}
       <div>
         <h3 className="text-md font-medium text-gray-900 mb-4">
-          Configured Benefits
+          Configured Plans
         </h3>
         <div className="space-y-6">
-          {benefits.map((benefit, index) => (
+          {plans?.map((plan, index) => (
             <div
               key={index}
               className="border p-4 mb-4 rounded-md shadow-sm bg-gray-50"
             >
               <div className="flex justify-between items-center mb-2">
-                <h4 className="font-medium">
-                  {benefit.title.replace(/_/g, " ")}
-                </h4>
+                <h4 className="font-medium">{plan.title.replace(/_/g, " ")}</h4>
                 <input
                   type="checkbox"
-                  checked={benefit.isEnabled}
-                  onChange={() => handleBenefitToggle(index)}
+                  checked={plan.isEnabled}
+                  onChange={() => handlePlansToggle(index)}
                   disabled={isConfigured}
                 />
               </div>
-              {benefit.isEnabled && (
+              {plan?.isEnabled && (
                 <div className="space-y-3">
                   <textarea
                     placeholder="Enter description"
                     className="w-full border p-2 rounded-md"
-                    value={benefit.description}
+                    value={plan.description}
                     onChange={(e) =>
-                      handleBenefitChange(index, "description", e.target.value)
+                      handlePlanChange(index, "description", e.target.value)
                     }
                     disabled={isConfigured}
                   />
                   <div className="flex flex-col items-start space-y-2 w-full">
-                    {benefit?.img?.length && (
+                    {plan?.img?.length ? (
                       <img
-                        src={benefit.img}
-                        alt="    Benefit Preview   "
+                        src={plan.img}
+                        alt="Plan Preview"
                         className="h-24 w-auto object-cover rounded-md shadow"
                       />
+                    ) : (
+                      <></>
                     )}
 
                     <label
@@ -472,7 +466,7 @@ const Benefits = ({ initialBenefits = [], applicationIds = [] }) => {
                           const imageUrl = await uploadImageToCloudinary(file);
                           if (imageUrl) {
                             console.log("Image URL:", imageUrl);
-                            handleBenefitChange(index, "img", imageUrl);
+                            handlePlanChange(index, "img", imageUrl);
                             toast.success("Image uploaded successfully");
                           }
                         }}

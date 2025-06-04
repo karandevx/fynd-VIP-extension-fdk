@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useParams } from "react-router-dom";
 import { toast } from "react-toastify";
+import urlJoin from "url-join";
 
 const SalesChannelSelectionModal = ({
   showModal,
@@ -14,21 +15,21 @@ const SalesChannelSelectionModal = ({
   const [loading, setLoading] = useState(false);
   const [salesChannels, setSalesChannels] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const EXAMPLE_MAIN_URL = window.location.origin;
 
   const fetchSalesChannels = async () => {
     setLoading(true);
     try {
       const response = await axios.get(
-        `${
-          import.meta.env.VITE_FETCH_BACKEND_URL
-        }?module=salesChannels&companyId=${company_id}`,
+        urlJoin(EXAMPLE_MAIN_URL, "/api/sales"),
         {
           headers: {
-            "Content-Type": "application/json",
+            "x-company-id": company_id,
           },
         }
       );
-      console.log("Fetched sales channels in modal:", response.data);
+      console.log("Fetched sales:", response);
+
       const configResponse = await axios.get(
         `${
           import.meta.env.VITE_FETCH_BACKEND_URL
@@ -42,9 +43,9 @@ const SalesChannelSelectionModal = ({
 
       console.log("Fetched configResponse:", configResponse.data);
 
-      if (response.data.success && configResponse.data.data[0]) {
+      if (response.status === 200 && configResponse.data.data[0]) {
         const configData = configResponse.data.data[0]?.applicationIds || [];
-        const allChannels = response.data.data || [];
+        const allChannels = response.data.items || [];
         const configuredChannels = allChannels?.filter((channel) =>
           configData.includes?.(channel.id)
         );
@@ -52,9 +53,9 @@ const SalesChannelSelectionModal = ({
       } else {
         throw new Error("Failed to fetch sales channels");
       }
-    } catch (error) {
-      console.error("Error fetching sales channels:", error);
-      toast.error("Failed to fetch sales channels");
+    } catch (e) {
+      console.error("Error fetching sales:", e);
+      toast.error("Failed to fetch sales");
     } finally {
       setLoading(false);
     }

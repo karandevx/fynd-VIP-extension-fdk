@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { FormProvider } from 'react-hook-form';
-import CampaignStepper from './CampaignStepper';
-import EmailTemplateForm from './EmailTemplateForm';
-import { useParams } from 'react-router-dom';
-import axios from 'axios';
-import { toast } from 'react-toastify';
-import SalesChannelSelectionModal from './SalesChannelSelectionModal';
+import React, { useState } from "react";
+import { FormProvider } from "react-hook-form";
+import CampaignStepper from "./CampaignStepper";
+import EmailTemplateForm from "./EmailTemplateForm";
+import { useParams } from "react-router-dom";
+import axios from "axios";
+import { toast } from "react-toastify";
+import SalesChannelSelectionModal from "./SalesChannelSelectionModal";
+import urlJoin from "url-join";
 
 const CampaignCreatePage = ({
   currentStep,
@@ -22,11 +23,11 @@ const CampaignCreatePage = ({
   register,
   handleIndividualProductSelect,
   handleIndividualCustomerSelect, // This handler is used for channel selection
-  handleSelectAllCustomers // This handler is used for select all channels
+  handleSelectAllCustomers, // This handler is used for select all channels
 }) => {
-  
   const { handleSubmit, getValues } = methods;
   const { company_id } = useParams();
+  const EXAMPLE_MAIN_URL = window.location.origin;
 
   const [showSaleschannelModal, setShowSaleschannelModal] = useState(false);
 
@@ -34,38 +35,40 @@ const CampaignCreatePage = ({
   const [selectedSaleschannels, setSelectedSaleschannels] = useState([]);
 
   // State for custom validation errors
-  const [dateError, setDateError] = useState('');
-  const [productError, setProductError] = useState('');
-  const [customerError, setCustomerError] = useState(''); // Keep name for error message consistency
+  const [dateError, setDateError] = useState("");
+  const [productError, setProductError] = useState("");
+  const [customerError, setCustomerError] = useState(""); // Keep name for error message consistency
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [campaignId, setCampaignId] = useState(null);
 
   // Update handlers to use selectedSaleschannels
   const handleIndividualSalesChannelSelect = (channelId) => {
-    setSelectedSaleschannels(prev =>
+    setSelectedSaleschannels((prev) =>
       prev.includes(channelId)
-        ? prev.filter(id => id !== channelId)
+        ? prev.filter((id) => id !== channelId)
         : [...prev, channelId]
     );
   };
 
   const handleSelectAllSalesChannels = (channelIdsToToggle) => {
-    setSelectedSaleschannels(prev => {
+    setSelectedSaleschannels((prev) => {
       // If channelIdsToToggle is empty, there's nothing to select or deselect
       if (channelIdsToToggle.length === 0) {
         return prev; // Return current state
       }
 
       // Check if all channels in the current toggled list are already selected
-      const allAreCurrentlySelected = channelIdsToToggle.every(id => prev.includes(id));
+      const allAreCurrentlySelected = channelIdsToToggle.every((id) =>
+        prev.includes(id)
+      );
 
       if (allAreCurrentlySelected) {
         // If all are selected, deselect all channels in the toggled list
-        return prev.filter(id => !channelIdsToToggle.includes(id));
+        return prev.filter((id) => !channelIdsToToggle.includes(id));
       } else {
         // If not all are selected, select all channels in the toggled list
         const newSelected = new Set(prev);
-        channelIdsToToggle.forEach(id => newSelected.add(id));
+        channelIdsToToggle.forEach((id) => newSelected.add(id));
         return Array.from(newSelected);
       }
     });
@@ -73,34 +76,45 @@ const CampaignCreatePage = ({
 
   const onSubmit = async (data) => {
     // Clear previous errors
-    setDateError('');
-    setProductError('');
-    setCustomerError('');
+    setDateError("");
+    setProductError("");
+    setCustomerError("");
 
-    const { name, description, startDate, endDate, offerText, offerLabel, preLaunchDays, discount, isFreeShipping } = data;
+    const {
+      name,
+      description,
+      startDate,
+      endDate,
+      offerText,
+      offerLabel,
+      preLaunchDays,
+      discount,
+      isFreeShipping,
+    } = data;
 
     // Date validation
     if (new Date(startDate) > new Date(endDate)) {
-      setDateError('Start date must be before or the same as the end date.');
+      setDateError("Start date must be before or the same as the end date.");
       return;
     }
 
     // Product validation
     if (selectedProducts.length === 0) {
-      setProductError('Please select at least one product.');
+      setProductError("Please select at least one product.");
       return;
     }
 
     // Sales Channel validation
-    if (selectedSaleschannels.length === 0) { // Use selectedSaleschannels
-      setCustomerError('Please select at least one sales channel.');
+    if (selectedSaleschannels.length === 0) {
+      // Use selectedSaleschannels
+      setCustomerError("Please select at least one sales channel.");
       return;
     }
 
     // If all validations pass
     if (currentStep === 1) {
       const payload = {
-        type: "create_campaign",
+        type: "Product Exclusivity And Custom Promotions Users",
         name: name,
         description: description || "", // Ensure description is included
         offerText: offerText || "",
@@ -109,51 +123,59 @@ const CampaignCreatePage = ({
         applicationIds: selectedSaleschannels, // Use selectedSaleschannels for applicationIds
         products: selectedProducts, // Use selectedProducts for products
         isFreeShipping: isFreeShipping, // Use isFreeShipping
-        discount: { // Use discount object
-            type: discount.type,
-            value: discount.value
+        discount: {
+          // Use discount object
+          type: discount.type,
+          value: discount.value,
         },
         startDate: new Date(startDate).toISOString(), // Format date to ISO string
         endDate: new Date(endDate).toISOString(), // Format date to ISO string
         preLaunchDays: parseInt(preLaunchDays || 0, 10), // Ensure it's a number
       };
 
-      console.log('Campaign Details Step Payload:', payload);
+      console.log("Campaign Details Step Payload:", payload);
 
       setIsSubmitting(true); // Set loading state
 
       try {
-        const response = await axios.post('https://create-campaign-af13fce1.serverless.boltic.app', payload, {
-          headers: {
-            'Content-Type': 'application/json'
+        const response = await axios.post(
+          urlJoin(EXAMPLE_MAIN_URL, "/api/promotion/create-campaign"),
+          {
+            payload: payload,
+          },
+          {
+            headers: {
+              "x-company-id": company_id,
+            },
           }
-        });
+        );
 
-        console.log("Campaign creation response:", response.data);
-        if (response.data.success && response.data.data) {
+        console.log("Campaign creation response:", response);
+        if (response.data) {
           setCampaignId(response.data.data);
-          toast.success('Campaign details saved successfully!');
+          toast.success("Campaign details saved successfully!");
           setCurrentStep(2);
         } else {
-          throw new Error(response.data.message || 'Failed to save campaign details');
+          throw new Error(data.message || "Failed to save campaign details");
         }
       } catch (error) {
-        console.error('Error saving campaign details:', error);
+        console.error("Error saving campaign details:", error);
         toast.error(`Error saving campaign details: ${error.message}`); // Update toast message
       } finally {
         setIsSubmitting(false); // Unset loading state
       }
-
-    } else { // This is the final submission step (Step 2) - Remove API call here
+    } else {
+      // This is the final submission step (Step 2) - Remove API call here
       // Handle final submission (email template only now)
-      console.log('Campaign Creation Complete (Email Template Step):', { // Update log message
+      console.log("Campaign Creation Complete (Email Template Step):", {
+        // Update log message
         // The campaign is already created in Step 1, just log the email template data if needed
         emailTemplateData: data.emailTemplate, // Assuming email template data is nested
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       // No API call needed here anymore for creating the main campaign
-      toast.success('Email template saved!'); // Add a success toast for email template saving
+      toast.success("Email template saved!"); // Add a success toast for email template saving
       setShowCreateCampaign(false); // Close the modal after completing the email template step
     }
   };
@@ -165,7 +187,9 @@ const CampaignCreatePage = ({
         <div className="mb-8 border-b pb-6 flex justify-between items-center">
           <div>
             <p className="text-3xl font-bold text-gray-800">Create Campaign</p>
-            <p className="mt-1 !text-base text-gray-600">Set up your new marketing campaign</p>
+            <p className="mt-1 !text-base text-gray-600">
+              Set up your new marketing campaign
+            </p>
           </div>
           <button
             onClick={() => setShowCreateCampaign(false)}
@@ -183,132 +207,209 @@ const CampaignCreatePage = ({
 
         {/* Form Content */}
         <div className="space-y-6">
-           <FormProvider {...methods}>
+          <FormProvider {...methods}>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               {currentStep === 1 ? (
                 <div className="space-y-6">
                   <div>
-                    <label htmlFor="campaignName" className="block text-sm font-medium text-gray-700 mb-1">Campaign Name</label>
+                    <label
+                      htmlFor="campaignName"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                      Campaign Name
+                    </label>
                     <input
                       type="text"
                       id="campaignName"
-                      {...register('name', { required: 'Campaign name is required' })}
+                      {...register("name", {
+                        required: "Campaign name is required",
+                      })}
                       className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     />
                     {errors.name && (
-                      <p className="mt-2 !text-sm text-red-600">{errors.name.message}</p>
+                      <p className="mt-2 !text-sm text-red-600">
+                        {errors.name.message}
+                      </p>
                     )}
                   </div>
 
                   <div>
-                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <label
+                      htmlFor="description"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                      Description
+                    </label>
                     <textarea
                       id="description"
-                      {...register('description', { required: 'Description is required' })}
+                      {...register("description", {
+                        required: "Description is required",
+                      })}
                       className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       rows="3"
                     />
                     {errors.description && (
-                      <p className="mt-2 !text-sm text-red-600">{errors.description.message}</p>
+                      <p className="mt-2 !text-sm text-red-600">
+                        {errors.description.message}
+                      </p>
                     )}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label htmlFor="offerText" className="block text-sm font-medium text-gray-700 mb-1">Offer Text</label>
+                      <label
+                        htmlFor="offerText"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Offer Text
+                      </label>
                       <input
                         type="text"
                         id="offerText"
-                        {...register('offerText', { required: 'Offertext is required' })}
+                        {...register("offerText", {
+                          required: "Offertext is required",
+                        })}
                         className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         placeholder="e.g., 20% off"
                       />
                       {errors.offerText && (
-                        <p className="mt-2 !text-sm text-red-600">{errors.offerText.message}</p>
+                        <p className="mt-2 !text-sm text-red-600">
+                          {errors.offerText.message}
+                        </p>
                       )}
                     </div>
                     <div>
-                      <label htmlFor="offerLabel" className="block text-sm font-medium text-gray-700 mb-1">Offer Label</label>
+                      <label
+                        htmlFor="offerLabel"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Offer Label
+                      </label>
                       <input
                         type="text"
                         id="offerLabel"
-                        {...register('offerLabel', { required: 'OfferLabel is required' })}
+                        {...register("offerLabel", {
+                          required: "OfferLabel is required",
+                        })}
                         className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         placeholder="e.g., Limited Time"
                       />
                       {errors.offerLabel && (
-                        <p className="mt-2 !text-sm text-red-600">{errors.offerLabel.message}</p>
+                        <p className="mt-2 !text-sm text-red-600">
+                          {errors.offerLabel.message}
+                        </p>
                       )}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                      <label
+                        htmlFor="startDate"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Start Date
+                      </label>
                       <input
                         type="date"
                         id="startDate"
-                        min={new Date().toISOString().split('T')[0]}
-                        {...register('startDate', {
-                          required: 'Start date is required',
-                          validate: value => {
+                        min={new Date().toISOString().split("T")[0]}
+                        {...register("startDate", {
+                          required: "Start date is required",
+                          validate: (value) => {
                             const today = new Date();
-                            today.setHours(0,0,0,0);
+                            today.setHours(0, 0, 0, 0);
                             const selected = new Date(value);
-                            selected.setHours(0,0,0,0);
-                            return selected >= today || 'Start date cannot be in the past';
-                          }
+                            selected.setHours(0, 0, 0, 0);
+                            return (
+                              selected >= today ||
+                              "Start date cannot be in the past"
+                            );
+                          },
                         })}
                         className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       />
                       {errors.startDate && (
-                        <p className="mt-2 !text-sm text-red-600">{errors.startDate.message}</p>
+                        <p className="mt-2 !text-sm text-red-600">
+                          {errors.startDate.message}
+                        </p>
                       )}
                     </div>
                     <div>
-                      <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                      <label
+                        htmlFor="endDate"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        End Date
+                      </label>
                       <input
                         type="date"
                         id="endDate"
-                        {...register('endDate', { required: 'End date is required' })}
+                        {...register("endDate", {
+                          required: "End date is required",
+                        })}
                         className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       />
                       {errors.endDate && (
-                        <p className="mt-2 !text-sm text-red-600">{errors.endDate.message}</p>
+                        <p className="mt-2 !text-sm text-red-600">
+                          {errors.endDate.message}
+                        </p>
                       )}
                     </div>
                     {dateError && (
-                      <p className="mt-2 !text-sm text-red-600 col-span-full">{dateError}</p>
+                      <p className="mt-2 !text-sm text-red-600 col-span-full">
+                        {dateError}
+                      </p>
                     )}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label htmlFor="discountType" className="block text-sm font-medium text-gray-700 mb-1">Discount Type</label>
+                      <label
+                        htmlFor="discountType"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Discount Type
+                      </label>
                       <select
                         id="discountType"
-                        {...register('discount.type', { required: 'Discount type is required' })}
+                        {...register("discount.type", {
+                          required: "Discount type is required",
+                        })}
                         className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       >
                         <option value="amount">Amount</option>
                         <option value="percentage">Percentage</option>
                       </select>
                       {errors.discount?.type && (
-                        <p className="mt-2 !text-sm text-red-600">{errors.discount.type.message}</p>
+                        <p className="mt-2 !text-sm text-red-600">
+                          {errors.discount.type.message}
+                        </p>
                       )}
                     </div>
                     <div>
-                      <label htmlFor="discountValue" className="block text-sm font-medium text-gray-700 mb-1">Discount Value</label>
+                      <label
+                        htmlFor="discountValue"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Discount Value
+                      </label>
                       <input
                         type="number"
                         id="discountValue"
-                        {...register('discount.value', {
-                          required: 'Discount value is required',
-                          min: { value: 0, message: 'Discount value must be positive' },
+                        {...register("discount.value", {
+                          required: "Discount value is required",
+                          min: {
+                            value: 0,
+                            message: "Discount value must be positive",
+                          },
                           validate: (value) => {
-                            const type = watch('discount.type');
-                            if (type === 'percentage' && (value < 0 || value > 100)) {
-                              return 'Percentage discount must be between 0 and 100';
+                            const type = watch("discount.type");
+                            if (
+                              type === "percentage" &&
+                              (value < 0 || value > 100)
+                            ) {
+                              return "Percentage discount must be between 0 and 100";
                             }
                             return true;
                           },
@@ -317,7 +418,9 @@ const CampaignCreatePage = ({
                         step="any"
                       />
                       {errors.discount?.value && (
-                        <p className="mt-2 !text-sm text-red-600">{errors.discount.value.message}</p>
+                        <p className="mt-2 !text-sm text-red-600">
+                          {errors.discount.value.message}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -327,29 +430,46 @@ const CampaignCreatePage = ({
                       <label className="inline-flex items-center">
                         <input
                           type="checkbox"
-                          {...register('isFreeShipping')}
+                          {...register("isFreeShipping")}
                           className="form-checkbox h-4 w-4 text-blue-600 transition duration-150 ease-in-out rounded border-gray-300 focus:ring-blue-500"
                         />
-                        <span className="ml-2 text-sm text-gray-700">Offer Free Shipping</span>
+                        <span className="ml-2 text-sm text-gray-700">
+                          Offer Free Shipping
+                        </span>
                       </label>
                     </div>
                     <div>
-                      <label htmlFor="preLaunchDays" className="block text-sm font-medium text-gray-700 mb-1">Pre-launch Days</label>
+                      <label
+                        htmlFor="preLaunchDays"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Pre-launch Days
+                      </label>
                       <input
                         type="number"
                         id="preLaunchDays"
-                        {...register('preLaunchDays', { valueAsNumber: true, min: { value: 0, message: 'Pre-launch days must be positive' } })}
+                        {...register("preLaunchDays", {
+                          valueAsNumber: true,
+                          min: {
+                            value: 0,
+                            message: "Pre-launch days must be positive",
+                          },
+                        })}
                         className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         defaultValue={0}
                       />
-                       {errors.preLaunchDays && (
-                        <p className="mt-2 !text-sm text-red-600">{errors.preLaunchDays.message}</p>
+                      {errors.preLaunchDays && (
+                        <p className="mt-2 !text-sm text-red-600">
+                          {errors.preLaunchDays.message}
+                        </p>
                       )}
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Products</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Products
+                    </label>
                     <button
                       type="button"
                       onClick={() => setShowProductModal(true)}
@@ -359,22 +479,30 @@ const CampaignCreatePage = ({
                       <span className="ml-2 text-gray-400">→</span>
                     </button>
                     {productError && (
-                      <p className="mt-2 !text-sm text-red-600">{productError}</p>
+                      <p className="mt-2 !text-sm text-red-600">
+                        {productError}
+                      </p>
                     )}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Sales Channels</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Sales Channels
+                    </label>
                     <button
                       type="button"
                       onClick={() => setShowSaleschannelModal(true)}
                       className="flex justify-between items-center w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 bg-white hover:bg-gray-50 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
                     >
-                      <span>{selectedSaleschannels.length} channels selected</span>
+                      <span>
+                        {selectedSaleschannels.length} channels selected
+                      </span>
                       <span className="ml-2 text-gray-400">→</span>
                     </button>
                     {customerError && (
-                      <p className="mt-2 !text-sm text-red-600">{customerError}</p>
+                      <p className="mt-2 !text-sm text-red-600">
+                        {customerError}
+                      </p>
                     )}
                   </div>
 
@@ -406,7 +534,7 @@ const CampaignCreatePage = ({
                 />
               )}
             </form>
-           </FormProvider>
+          </FormProvider>
         </div>
       </div>
 
@@ -417,9 +545,8 @@ const CampaignCreatePage = ({
         onChannelSelect={handleIndividualSalesChannelSelect}
         onSelectAllChannels={handleSelectAllSalesChannels}
       />
-
     </div>
   );
 };
 
-export default CampaignCreatePage; 
+export default CampaignCreatePage;
