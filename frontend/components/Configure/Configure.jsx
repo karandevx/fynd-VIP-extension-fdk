@@ -34,8 +34,8 @@ const Configure = () => {
         }
       );
 
-      if (response.data.success && response.data.length > 0) {
-        const configData = response.data[0];
+      if (response.data.success && response.data.data.length > 0) {
+        const configData = response.data.data[0];
         setConfig(configData);
 
         // Set access config
