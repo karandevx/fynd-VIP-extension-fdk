@@ -21,10 +21,188 @@ const upload = multer();
 require("dotenv").config();
 const axios = require("axios");
 const { MongoClient } = require("mongodb");
-const { type } = require("os");
+const uri = process.env.MONGO_URI;
 
-const uri =
-  "mongodb+srv://karandesai:karandevx@cluster0.snxaomy.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const processShipmentEvent = async (
+  eventName,
+  body,
+  companyId,
+  applicationId
+) => {
+  console.log("Processing Shipment Event", body);
+
+  const shipment = body?.payload?.shipment;
+  if (!shipment) return console.log("No shipment data found");
+
+  const hasVIPProduct = shipment?.bags?.some((bag) =>
+    bag?.item?.meta?.tags?.includes("vip_product")
+  );
+
+  const VIPDays = getVIPDaysFromTags(shipment?.bags);
+  const { firstName, lastName, email, phone, userId } =
+    extractUserInfo(shipment);
+  const userName = shipment?.delivery_address?.name ?? "";
+
+  if (hasVIPProduct) {
+    const userPayload = {
+      userId,
+      firstName,
+      lastName,
+      email,
+      phone,
+      companyId: companyId.toString(),
+      orderId: shipment?.order_id || "",
+      applicationId,
+      createdAt: new Date(shipment?.order_created),
+      VIPDays: VIPDays || 0,
+      VIPExpiry: getVIPExpiryDate(shipment?.order_created, VIPDays),
+      updatedAt: new Date(),
+    };
+
+    await upsertUser(userPayload, companyId);
+    await updateUserAttrDefinition(userId, companyId, applicationId);
+  }
+
+  const promoAndCodeIds = getPromoAndCodeIds(shipment?.bags);
+  const hasAnyPromoId = promoAndCodeIds.length > 0;
+
+  const client = new MongoClient(uri);
+  await client.connect();
+
+  try {
+    const db = client.db(`${companyId}_VIP_Program`);
+    const vipConfig = await db.collection("vip_configs").findOne({
+      startDate: { $lte: new Date().toISOString() },
+      endDate: { $gt: new Date().toISOString() },
+      applicationIds: applicationId,
+    });
+
+    if (!vipConfig?.promotions?.[applicationId]) {
+      console.log("No matching promotions found");
+      return;
+    }
+
+    const campaignId = vipConfig.campaignId;
+    const isPromoMatched = promoAndCodeIds.includes(
+      vipConfig.promotions[applicationId]
+    );
+
+    if (isPromoMatched) {
+      const analyticsPayload = {
+        userId,
+        firstName,
+        lastName,
+        email,
+        phone,
+        companyId: companyId.toString(),
+        applicationId,
+        orderId: shipment?.order_id,
+        createdAt: shipment?.bags?.[0]?.order_created || "",
+        campaignId,
+        promotionId: vipConfig.promotions[applicationId],
+      };
+
+      await db.collection("analytics").insertOne(analyticsPayload);
+      console.log("Promo analytics saved");
+    } else {
+      console.log("No promo match found in shipment data");
+    }
+  } catch (error) {
+    console.error("Error processing VIP config or analytics:", error);
+  } finally {
+    await client.close();
+  }
+};
+
+const updateUserAttrDefinition = async (userId, companyId, applicationId) => {
+  try {
+    const client = new MongoClient(uri);
+    await client.connect();
+    const db = client.db(`${companyId}_VIP_Program`);
+    const vipConfig = await db.collection("vip_configs").findOne({ companyId });
+
+    const userAttributeId = vipConfig?.userAttributeIds?.[applicationId];
+    if (!userAttributeId) {
+      console.log(
+        `No user attribute definition found for app ${applicationId}`
+      );
+      return;
+    }
+
+    const { access_token: AUTH_TOKEN } = (await getLatestSession()) || {};
+    const config = {
+      headers: {
+        Authorization: `Bearer ${AUTH_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+    };
+
+    const payload = {
+      type: "boolean",
+      attribute: { value: true },
+    };
+
+    const url = `https://api.fynd.com/service/platform/user/v1.0/company/${companyId}/application/${applicationId}/user_attribute/definition/${userAttributeId}/user/${userId}`;
+    const response = await axiosClient.put(url, payload, config);
+    console.log("Attribute update response:", response?.data);
+  } catch (error) {
+    console.error("Error updating user attribute:", error?.message || error);
+  }
+};
+
+const extractUserInfo = (shipment) => {
+  const isAnonymous = shipment?.is_anonymous_user ?? true;
+  const name = shipment?.delivery_address?.name || "";
+  const [first, last] = name?.includes(" ") ? name.split(" ") : [name, name];
+
+  return {
+    userId: shipment?.user?.user_oid,
+    firstName: isAnonymous ? first : shipment?.user?.first_name,
+    lastName: isAnonymous ? last || first : shipment?.user?.last_name,
+    email: isAnonymous
+      ? shipment?.delivery_address?.email
+      : shipment?.user?.email,
+    phone: `${shipment?.delivery_address?.country_phone_code ?? ""}${
+      shipment?.delivery_address?.phone ?? ""
+    }`,
+  };
+};
+
+const getVIPDaysFromTags = (bags) =>
+  bags
+    ?.flatMap((bag) => bag?.item?.meta?.tags || [])
+    .find((tag) => /(\d+)_days$/.test(tag))
+    ?.match(/(\d+)_days$/)?.[1] || 0;
+
+const getVIPExpiryDate = (orderDate, VIPDays) =>
+  new Date(new Date(orderDate).getTime() + VIPDays * 86400000);
+
+const getPromoAndCodeIds = (bags) =>
+  bags
+    ?.flatMap((bag) =>
+      bag?.applied_promos?.flatMap((promo) => [promo?.promo_id, promo?.code_id])
+    )
+    .filter(Boolean) || [];
+
+const upsertUser = async (payload, companyId) => {
+  const client = new MongoClient(uri);
+  await client.connect();
+  try {
+    const db = client.db(`${companyId}_VIP_Program`);
+    const result = await db
+      .collection("users")
+      .updateOne(
+        { userId: payload.userId },
+        { $set: payload },
+        { upsert: true }
+      );
+    console.log(`Upserted ${result.upsertedCount} document(s)`);
+  } catch (err) {
+    console.error("MongoDB upsert error:", err);
+  } finally {
+    await client.close();
+  }
+};
 
 const fdkExtension = setupFdk({
   api_key: process.env.EXTENSION_API_KEY,
@@ -52,7 +230,7 @@ const fdkExtension = setupFdk({
   access_mode: "online",
   webhook_config: {
     api_path: "/api/webhook-events",
-    notification_email: "useremail@example.com",
+    notification_email: "karan.desai@devxconsultancy.com",
     event_map: {
       "company/product/delete": {
         handler: (eventName) => {
@@ -60,10 +238,8 @@ const fdkExtension = setupFdk({
         },
         version: "1",
       },
-      "application/order/placed": {
-        handler: (eventName) => {
-          console.log(eventName);
-        },
+      "application/shipment/create": {
+        handler: processShipmentEvent,
         version: "1",
       },
     },
@@ -104,11 +280,13 @@ app.use("/", fdkExtension.fdkHandler);
 // Route to handle webhook events and process it.
 app.post("/api/webhook-events", async function (req, res) {
   try {
-    console.log(`Webhook Event: ${req.body.event} received`);
+    console.log(`Webhook Event received`);
+    console.log(JSON.stringify(req.body.event, null, 2));
     await fdkExtension.webhookRegistry.processWebhook(req);
     return res.status(200).json({ success: true });
   } catch (err) {
-    console.log(`Error Processing ${req.body.event} Webhook`);
+    console.log(`Error Processing  Webhook`);
+    console.log(JSON.stringify(req.body.event, null, 2));
     return res.status(500).json({ success: false });
   }
 });
