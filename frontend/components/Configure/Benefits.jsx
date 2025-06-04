@@ -40,26 +40,6 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
   const [isConfigured, setIsConfigured] = useState(
     initialPlans.length > 0 && applicationIds.length > 0 ? true : false
   );
-  const [hasChanges, setHasChanges] = useState(false);
-  const [originalState, setOriginalState] = useState({
-    plans: [],
-    selectedChannels: []
-  });
-
-  useEffect(() => {
-    if (initialPlans.length > 0 && applicationIds.length > 0) {
-      setOriginalState({
-        plans: [...initialPlans],
-        selectedChannels: [...applicationIds]
-      });
-    }
-  }, [initialPlans, applicationIds]);
-
-  const checkForChanges = (newPlans, newChannels) => {
-    const plansChanged = JSON.stringify(newPlans) !== JSON.stringify(originalState.plans);
-    const channelsChanged = JSON.stringify(newChannels) !== JSON.stringify(originalState.selectedChannels);
-    setHasChanges(plansChanged || channelsChanged);
-  };
 
   const fetchSalesChannels = async () => {
     setLoading(true);
@@ -87,9 +67,7 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
   }, [company_id]);
 
   const handlePlansToggle = (index) => {
-    if (originalState.plans[index]?.isEnabled) {
-      return;
-    }
+    if (isConfigured) return;
     setPlans((prev) => {
       const newPlan = [...prev];
       newPlan[index] = {
@@ -100,66 +78,41 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
           : newPlan[index].description,
         img: !newPlan[index].isEnabled ? "" : newPlan[index].img,
       };
-      checkForChanges(newPlan, selectedChannels);
       return newPlan;
     });
   };
 
   const handlePlanChange = (index, field, value) => {
-    if (originalState.plans[index]?.isEnabled) {
-      setPlans((prev) => {
-        const newPlan = [...prev];
-        newPlan[index] = {
-          ...newPlan[index],
-          [field]: value,
-        };
-        checkForChanges(newPlan, selectedChannels);
-        return newPlan;
-      });
-    } else if (plans[index].isEnabled) {
-      setPlans((prev) => {
-        const newPlan = [...prev];
-        newPlan[index] = {
-          ...newPlan[index],
-          [field]: value,
-        };
-        checkForChanges(newPlan, selectedChannels);
-        return newPlan;
-      });
-    }
+    if (isConfigured) return;
+    setPlans((prev) => {
+      const newPlan = [...prev];
+      newPlan[index] = {
+        ...newPlan[index],
+        [field]: value,
+      };
+      return newPlan;
+    });
   };
 
   const handleChannelSelect = (channelId) => {
-    if (originalState.selectedChannels.includes(channelId)) {
-      return;
-    }
+    if (isConfigured) return;
     setSelectedChannels((prev) => {
-      const newChannels = prev.includes(channelId)
-        ? prev.filter((id) => id !== channelId)
-        : [...prev, channelId];
-      checkForChanges(plans, newChannels);
-      return newChannels;
+      if (prev.includes(channelId)) {
+        return prev.filter((id) => id !== channelId);
+      } else {
+        return [...prev, channelId];
+      }
     });
   };
 
   const handleSelectAll = () => {
-    const allOriginalChannelsSelected = originalState.selectedChannels.every(channelId =>
-      selectedChannels.includes(channelId)
-    );
-    
-    if (!allOriginalChannelsSelected) {
-      return;
+    if (isConfigured) return;
+    if (selectedChannels.length === filteredChannels.length) {
+      setSelectedChannels([]);
+    } else {
+      setSelectedChannels(filteredChannels.map((channel) => channel.id));
     }
-
-    setSelectedChannels((prev) => {
-      const newChannels = prev.length === filteredChannels.length
-        ? originalState.selectedChannels
-        : filteredChannels.map((channel) => channel.id);
-      checkForChanges(plans, newChannels);
-      return newChannels;
-    });
   };
-
   const uploadImageToCloudinary = async (file) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -178,34 +131,14 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
     }
   };
 
-  const validatePlans = () => {
-    const errors = [];
-    plans.forEach((plan, index) => {
-      if (plan.isEnabled) {
-        if (!plan.description?.trim()) {
-          errors.push(`Description is required for ${plan.title.replace(/_/g, " ")}`);
-        }
-        if (!plan.img) {
-          errors.push(`Image is required for ${plan.title.replace(/_/g, " ")}`);
-        }
-      }
-    });
-    return errors;
-  };
-
   const handleSave = async () => {
+    if (isConfigured) return;
     if (selectedChannels.length === 0) {
       toast.warning("Please select at least one sales channel");
       return;
     }
 
-    const validationErrors = validatePlans();
-    if (validationErrors.length > 0) {
-      validationErrors.forEach(error => toast.error(error));
-      return;
-    }
-
-    setSaving(true);
+    //  setSaving(true);
     try {
       const configuredPlans = plans?.map((plan) => ({
         title: plan.title,
@@ -229,11 +162,6 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
       if (data.data.success) {
         toast.success("Plans saved successfully");
         setIsConfigured(true);
-        setHasChanges(false);
-        setOriginalState({
-          plans: [...plans],
-          selectedChannels: [...selectedChannels]
-        });
       } else {
         throw new Error("Failed to save Plans");
       }
@@ -274,7 +202,7 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
             </span>
           )}
         </div>
-        {hasChanges && (
+        {!isConfigured && (
           <button
             onClick={handleSave}
             type="button"
@@ -282,7 +210,7 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
               saving ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"
             }`}
           >
-            {saving ? "Saving..." : "Save Changes"}
+            {saving ? "Saving..." : "Save Configuration"}
           </button>
         )}
       </div>
@@ -295,9 +223,11 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
         <div className="relative">
           <button
             type="button"
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            onClick={() => !isConfigured && setIsDropdownOpen(!isDropdownOpen)}
             className={`w-full px-4 py-2.5 text-left border border-gray-300 rounded-md shadow-sm bg-white ${
-              "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              isConfigured
+                ? "cursor-default"
+                : "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             }`}
           >
             <div className="flex justify-between items-center cursor-pointer">
@@ -323,21 +253,23 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
                       } selected`}
                 </span>
               </div>
-              <svg
-                className={`h-5 w-5 text-gray-400 transform transition-transform ${
-                  isDropdownOpen ? "rotate-180" : ""
-                }`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
+              {!isConfigured && (
+                <svg
+                  className={`h-5 w-5 text-gray-400 transform transition-transform ${
+                    isDropdownOpen ? "rotate-180" : ""
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              )}
             </div>
           </button>
 
@@ -379,7 +311,7 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
             </div>
           )}
 
-          {isDropdownOpen && (
+          {!isConfigured && isDropdownOpen && (
             <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg">
               <div className="p-2 border-b border-gray-200">
                 <div className="relative">
@@ -434,10 +366,7 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
                         type="checkbox"
                         checked={selectedChannels.includes(channel.id)}
                         onChange={() => handleChannelSelect(channel.id)}
-                        className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${
-                          originalState.selectedChannels.includes(channel.id) ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
-                        disabled={originalState.selectedChannels.includes(channel.id)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       />
                       <div className="flex items-center space-x-3">
                         <div className="flex-shrink-0 h-8 w-8 rounded-full bg-white border border-gray-200 overflow-hidden">
@@ -495,28 +424,20 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
                   type="checkbox"
                   checked={plan.isEnabled}
                   onChange={() => handlePlansToggle(index)}
-                  className={originalState.plans[index]?.isEnabled ? 'opacity-50 cursor-not-allowed' : ''}
-                  disabled={originalState.plans[index]?.isEnabled}
+                  disabled={isConfigured}
                 />
               </div>
               {plan?.isEnabled && (
                 <div className="space-y-3">
-                  <div>
-                    <textarea
-                      placeholder="Enter description"
-                      className={`w-full border p-2 rounded-md ${
-                        originalState.plans[index]?.isEnabled ? 'opacity-50 cursor-not-allowed' : ''
-                      } ${!plan.description?.trim() && plan.isEnabled ? 'border-red-500' : ''}`}
-                      value={plan.description}
-                      onChange={(e) =>
-                        handlePlanChange(index, "description", e.target.value)
-                      }
-                      disabled={originalState.plans[index]?.isEnabled}
-                    />
-                    {!plan.description?.trim() && plan.isEnabled && (
-                      <p className="text-red-500 text-sm mt-1">Description is required</p>
-                    )}
-                  </div>
+                  <textarea
+                    placeholder="Enter description"
+                    className="w-full border p-2 rounded-md"
+                    value={plan.description}
+                    onChange={(e) =>
+                      handlePlanChange(index, "description", e.target.value)
+                    }
+                    disabled={isConfigured}
+                  />
                   <div className="flex flex-col items-start space-y-2 w-full">
                     {plan?.img?.length ? (
                       <img
@@ -525,37 +446,34 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
                         className="h-24 w-auto object-cover rounded-md shadow"
                       />
                     ) : (
-                      <>
-                        <label
-                          className={`cursor-pointer w-full flex items-center justify-center px-4 py-2 bg-blue-100 text-blue-600 font-medium rounded-lg border border-blue-300 transition-colors duration-200 ${
-                            originalState.plans[index]?.isEnabled 
-                              ? 'opacity-50 cursor-not-allowed' 
-                              : 'hover:bg-blue-200'
-                          } ${!plan.img && plan.isEnabled ? 'border-red-500' : ''}`}
-                        >
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={async (e) => {
-                              const file = e.target.files[0];
-                              if (!file) return;
-                              const imageUrl = await uploadImageToCloudinary(file);
-                              if (imageUrl) {
-                                console.log("Image URL:", imageUrl);
-                                handlePlanChange(index, "img", imageUrl);
-                                toast.success("Image uploaded successfully");
-                              }
-                            }}
-                            disabled={originalState.plans[index]?.isEnabled}
-                          />
-                          📷 Upload Image
-                        </label>
-                        {!plan.img && plan.isEnabled && (
-                          <p className="text-red-500 text-sm">Image is required</p>
-                        )}
-                      </>
+                      <></>
                     )}
+
+                    <label
+                      className={`cursor-pointer w-full flex items-center justify-center px-4 py-2 bg-blue-100  text-blue-600 font-medium rounded-lg border border-blue-300 transition-colors duration-200 ${
+                        isConfigured
+                          ? "cursor-not-allowed opacity-50"
+                          : "hover:bg-blue-200"
+                      }`}
+                    >
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files[0];
+                          if (!file) return;
+                          const imageUrl = await uploadImageToCloudinary(file);
+                          if (imageUrl) {
+                            console.log("Image URL:", imageUrl);
+                            handlePlanChange(index, "img", imageUrl);
+                            toast.success("Image uploaded successfully");
+                          }
+                        }}
+                        disabled={isConfigured}
+                      />
+                      📷 Upload Image
+                    </label>
                   </div>
                 </div>
               )}
