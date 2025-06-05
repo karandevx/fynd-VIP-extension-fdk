@@ -1,8 +1,13 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
-import urlJoin from "url-join";
+import React, { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "react-toastify";
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  setSelectedProducts,
+  addSelectedProduct,
+  fetchVipProducts,
+  saveVipProducts,
+} from '../../src/features/vipProducts/vipProductsSlice';
 
 const VipProducts = ({
   initialProducts = [],
@@ -11,49 +16,76 @@ const VipProducts = ({
   config,
 }) => {
   const { company_id } = useParams();
-  const [productList, setProductList] = useState([]);
-  const [selectedProducts, setSelectedProducts] = useState(initialProducts); // [{ PLAN_NAME: { uid, item_code } }]
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const dispatch = useDispatch();
+  const {
+    productList,
+    selectedProducts,
+    loading,
+    saving,
+    error,
+    lastFetched,
+  } = useSelector((state) => state.vipProducts);
 
   const isConfigured = disabled;
-  const EXAMPLE_MAIN_URL = window.location.origin;
-
   const enabledPlans = config?.benefits?.filter((plan) => plan.isEnabled);
 
-  const fetchProducts = async () => {
-    setLoading(true);
-    try {
-      const { data } = await axios.get(
-        urlJoin(EXAMPLE_MAIN_URL, "/api/products/vip-products"),
-        {
-          headers: {
-            "x-company-id": company_id,
-          },
-        }
-      );
-      setProductList(data.items || []);
-    } catch (e) {
-      toast.error("Failed to fetch VIP products");
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+  // Get all selected product UIDs across all plans
+  const getAllSelectedProductUids = () => {
+    return selectedProducts.reduce((acc, product) => {
+      const planTitle = Object.keys(product)[0];
+      const productData = product[planTitle];
+      if (productData?.uid) {
+        acc.push(productData.uid);
+      }
+      return acc;
+    }, []);
   };
 
+  // Fetch products only once when component mounts or company_id changes
   useEffect(() => {
-    fetchProducts();
+    const shouldFetch = !lastFetched || Date.now() - lastFetched > 5 * 60 * 1000; // 5 minutes cache
+    if (shouldFetch) {
+      dispatch(fetchVipProducts(company_id));
+    }
   }, [company_id]);
+
+  // Set initial products only when they change and we don't have selected products
+  useEffect(() => {
+    if (initialProducts?.length > 0 && selectedProducts.length === 0) {
+      dispatch(setSelectedProducts(initialProducts));
+    }
+  }, [initialProducts]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
+  const handleRefresh = () => {
+    dispatch(fetchVipProducts(company_id));
+  };
 
   const getSelectedForPlan = (planTitle) => {
     return selectedProducts?.find((item) => item[planTitle])?.[planTitle];
   };
 
+  const isProductSelectedInAnyPlan = (productUid) => {
+    return getAllSelectedProductUids().includes(productUid);
+  };
+
   const handleProductSelect = (planTitle, productUid, itemCode) => {
     if (isConfigured) return;
-    const updated = selectedProducts.filter((entry) => !entry[planTitle]);
-    updated.push({ [planTitle]: { uid: productUid, item_code: itemCode } });
-    setSelectedProducts(updated);
+    
+    if (isProductSelectedInAnyPlan(productUid)) {
+      toast.warning("This product is already selected in another plan");
+      return;
+    }
+
+    dispatch(addSelectedProduct({
+      planTitle,
+      product: { uid: productUid, item_code: itemCode }
+    }));
   };
 
   const handleSave = async () => {
@@ -61,34 +93,15 @@ const VipProducts = ({
       toast.warning("Please select one product for at least one plan");
       return;
     }
-    console.log("Selected Products:", selectedProducts);
 
-    setSaving(true);
+    const resultAction = await dispatch(saveVipProducts({
+      selectedProducts,
+      companyId: company_id
+    }));
 
-    try {
-      const { data } = await axios.post(
-        urlJoin(EXAMPLE_MAIN_URL, "/api/products/vip-products"),
-        {
-          selectedProducts: selectedProducts,
-        },
-        {
-          headers: {
-            "x-company-id": company_id,
-          },
-        }
-      );
-
-      if (data) {
-        toast.success("VIP products saved successfully");
-        setActiveTab("benefits");
-      } else {
-        throw new Error("Save failed");
-      }
-    } catch (error) {
-      console.error("Error saving VIP products:", error);
-      toast.error("Failed to save VIP products");
-    } finally {
-      setSaving(false);
+    if (saveVipProducts.fulfilled.match(resultAction)) {
+      toast.success("VIP products saved successfully");
+      setActiveTab("benefits");
     }
   };
 
@@ -115,27 +128,53 @@ const VipProducts = ({
           <span className="px-3 py-1 text-sm font-medium bg-blue-100 text-blue-800 rounded-full">
             {selectedProducts.length} Selected
           </span>
+          {lastFetched && (
+            <span className="text-sm text-gray-500">
+              Last updated: {new Date(lastFetched).toLocaleTimeString()}
+            </span>
+          )}
         </div>
-        {!isConfigured && (
+        <div className="flex items-center space-x-4">
           <button
             type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className={`cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-md transition-colors ${
-              saving ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"
-            }`}
+            onClick={handleRefresh}
+            className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
+            title="Refresh products"
           >
-            {saving ? "Saving..." : "Save Selection"}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
           </button>
-        )}
+          {!isConfigured && (
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className={`cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-md transition-colors ${
+                saving ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"
+              }`}
+            >
+              {saving ? "Saving..." : "Save Selection"}
+            </button>
+          )}
+        </div>
       </div>
 
       {enabledPlans?.length === 0 ? (
         <p className="text-gray-500 text-center">No enabled plans available.</p>
       ) : (
-        enabledPlans.map((plan) => {
-          const productsForPlan = productList;
-
+        enabledPlans?.map((plan) => {
           const selected = getSelectedForPlan(plan.title);
 
           return (
@@ -154,20 +193,24 @@ const VipProducts = ({
                 </div>
               </div>
 
-              {productsForPlan?.length === 0 ? (
+              {productList?.length === 0 ? (
                 <p className="text-sm text-gray-400">
-                  No products for this plan.
+                  No products available.
                 </p>
               ) : (
                 <div className="grid md:grid-cols-3 gap-4">
-                  {productsForPlan.map((product) => {
+                  {productList?.map((product) => {
                     const isSelected = selected?.uid === product.uid;
+                    const isDisabled = isConfigured || (isProductSelectedInAnyPlan(product.uid) && !isSelected);
+                    
                     return (
                       <label
                         key={product.uid}
                         className={`border p-4 rounded-lg cursor-pointer transition-colors flex items-start space-x-4 ${
                           isSelected
                             ? "bg-blue-50 border-blue-400"
+                            : isDisabled
+                            ? "opacity-50 cursor-not-allowed"
                             : "hover:bg-gray-50 border-gray-200"
                         }`}
                       >
@@ -182,7 +225,7 @@ const VipProducts = ({
                               product.item_code
                             )
                           }
-                          disabled={isConfigured}
+                          disabled={isDisabled}
                           className="mt-1 h-4 w-4 text-blue-600"
                         />
                         <div className="flex-1 flex items-center space-x-4">

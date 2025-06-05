@@ -10,13 +10,6 @@ const Configure = () => {
   const [loading, setLoading] = useState(true);
   const [config, setConfig] = useState(null);
 
-  // Access Config State
-  const [accessConfig, setAccessConfig] = useState({
-    clientId: "",
-    clientSecret: "",
-    enabled: true,
-  });
-
   // Active Tab State
   const [activeTab, setActiveTab] = useState("plans");
 
@@ -37,14 +30,6 @@ const Configure = () => {
       if (response.data.success && response.data.data.length > 0) {
         const configData = response.data.data[0];
         setConfig(configData);
-
-        // Set access config
-        setAccessConfig({
-          clientId: configData.clientId || "",
-          clientSecret: configData.clientSecret || "",
-          enabled:
-            configData.clientId && configData.clientSecret ? false : true,
-        });
       }
     } catch (error) {
       console.error("Error fetching configuration:", error);
