@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import { useParams } from "react-router-dom";
 import { toast } from "react-toastify";
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchSalesChannels } from '../../src/features/salesChannelsSlice';
+import { HiOutlineRefresh } from 'react-icons/hi';
 
 const SalesChannelSelectionModal = ({
   showModal,
@@ -11,69 +13,36 @@ const SalesChannelSelectionModal = ({
   onSelectAllChannels, // Receive select all handler from parent
 }) => {
   const { company_id } = useParams();
-  const [loading, setLoading] = useState(false);
-  const [salesChannels, setSalesChannels] = useState([]);
+  const dispatch = useDispatch();
+  const { items: salesChannels, loading } = useSelector((state) => state.salesChannels);
+  const configuredChannelIds = useSelector((state) => state.configure.salesChannels);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const fetchSalesChannels = async () => {
-    setLoading(true);
-    try {
-      const response = await axios.get(
-        `${
-          import.meta.env.VITE_FETCH_BACKEND_URL
-        }?module=salesChannels&companyId=${company_id}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      console.log("Fetched sales channels in modal:", response.data);
-      const configResponse = await axios.get(
-        `${
-          import.meta.env.VITE_FETCH_BACKEND_URL
-        }?module=configs&companyId=${company_id}&queryType=scan`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
+  // Only show channels that are in configure.salesChannels
+  const configuredChannels = salesChannels.filter(channel => configuredChannelIds.includes(channel.id));
 
-      console.log("Fetched configResponse:", configResponse.data);
-
-      if (response.data.success && configResponse.data.data[0]) {
-        const configData = configResponse.data.data[0]?.applicationIds || [];
-        const allChannels = response.data.data || [];
-        const configuredChannels = allChannels?.filter((channel) =>
-          configData.includes?.(channel.id)
-        );
-        setSalesChannels(configuredChannels);
-      } else {
-        throw new Error("Failed to fetch sales channels");
-      }
-    } catch (error) {
-      console.error("Error fetching sales channels:", error);
-      toast.error("Failed to fetch sales channels");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (showModal) {
-      // Fetch channels only when modal is shown
-      fetchSalesChannels();
-    }
-  }, [showModal, company_id]);
-
-  if (!showModal) return null;
-
-  const filteredChannels = salesChannels.filter(
+  // Search filter
+  const filteredChannels = configuredChannels.filter(
     (channel) =>
       channel.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       channel.domain?.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Fetch from Redux only if not already loaded
+  useEffect(() => {
+    if (showModal && salesChannels.length === 0 && company_id) {
+      dispatch(fetchSalesChannels(company_id));
+    }
+  }, [showModal, company_id, dispatch, salesChannels.length]);
+
+  // Refresh handler
+  const handleRefresh = () => {
+    if (company_id) {
+      dispatch(fetchSalesChannels(company_id));
+    }
+  };
+
+  if (!showModal) return null;
 
   // Determine if all currently visible channels are selected
   const allVisibleSelected =
@@ -86,12 +55,23 @@ const SalesChannelSelectionModal = ({
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold">Select Sales Channels</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              ×
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleRefresh}
+                title="Refresh Channels"
+                className="p-2 rounded-full bg-gray-100 hover:bg-indigo-200 transition-colors border border-gray-200 shadow-sm flex items-center justify-center"
+                aria-label="Refresh Channels"
+                disabled={loading}
+              >
+                <HiOutlineRefresh className={`text-indigo-600 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={onClose}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
           </div>
 
           {/* Search Control */}

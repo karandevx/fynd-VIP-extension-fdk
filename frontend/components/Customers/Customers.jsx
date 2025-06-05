@@ -1,67 +1,46 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { useParams } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import { fetchCustomers } from "../../src/features/customersSlice";
+import { fetchSalesChannels } from "../../src/features/salesChannelsSlice";
 import { toast } from "react-toastify";
+import { HiOutlineRefresh } from "react-icons/hi";
+import { filterCustomers, sortCustomers, paginate, getSalesChannelName } from '../../utils/customerUtils';
+import { renderPagination } from '../../utils/paginationUtils';
 
 export const Customers = () => {
   const { company_id } = useParams();
-  const [pageLoading, setPageLoading] = useState(true);
+  const dispatch = useDispatch();
+  const { items: customers, loading: pageLoading, error } = useSelector((state) => state.customers);
+  const { items: salesChannels } = useSelector((state) => state.salesChannels);
+  const configuredChannelIds = useSelector((state) => state.configure.salesChannels);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState("firstName");
   const [sortDirection, setSortDirection] = useState("asc");
-  const [customers, setCustomers] = useState([]);
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const [salesChannels, setSalesChannels] = useState([]);
   const [selectedChannel, setSelectedChannel] = useState('all');
 
-  const fetchCustomers = async () => {
-    setPageLoading(true);
-    try {
-      const response = await axios.get(`${import.meta.env.VITE_FETCH_BACKEND_URL}?module=users&companyId=${company_id}&queryType=scan`, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      if (response.data.success) {
-        setCustomers(response.data.data);
-        setFilteredCustomers(response.data.data);
-      } 
-    } catch (error) {
-      console.error('Error fetching customers:', error);
-    } finally {
-      setPageLoading(false);
+  const customersLoaded = customers.length > 0;
+  const salesChannelsLoaded = salesChannels.length > 0;
+
+  useEffect(() => {
+    if (company_id) {
+      if (!customersLoaded) dispatch(fetchCustomers(company_id));
+      if (!salesChannelsLoaded) dispatch(fetchSalesChannels(company_id));
+    }
+  }, [company_id, dispatch, customersLoaded, salesChannelsLoaded]);
+
+  const handleRefresh = () => {
+    if (company_id) {
+      dispatch(fetchCustomers(company_id));
+      dispatch(fetchSalesChannels(company_id));
     }
   };
 
-  useEffect(() => {
-    fetchCustomers();
-  }, [company_id]);
-
-  // Fetch sales channels on mount
-  useEffect(() => {
-    const fetchSalesChannels = async () => {
-      try {
-        const response = await axios.get(
-          `https://fetch-db-data-d9ca324b.serverless.boltic.app?module=salesChannels&companyId=${company_id}`,
-          { headers: { 'Content-Type': 'application/json' } }
-        );
-        if (response.data.success) {
-          setSalesChannels(response.data.data);
-        }
-      } catch (err) {
-        // Optionally handle error
-      }
-    };
-    fetchSalesChannels();
-  }, [company_id]);
-
-  // Map applicationId to sales channel name
-  const getSalesChannelName = (id) => {
-    const channel = salesChannels.find((ch) => ch._id === id);
-    return channel ? channel.name : id;
-  };
+  // Only show channels that are in configure.salesChannels
+  const configuredChannels = salesChannels.filter(channel => configuredChannelIds.includes(channel.id));
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -73,185 +52,40 @@ export const Customers = () => {
   };
 
   useEffect(() => {
-    let result = [...customers];
-
-    // Filter by search term
-    if (searchTerm) {
-      result = result.filter(customer => 
-        customer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.phone?.includes(searchTerm)
-      );
-    }
-
-    // Filter by sales channel
-    if (selectedChannel !== 'all') {
-      result = result.filter(customer => customer.applicationId === selectedChannel);
-    }
-
-    // Sorting
-    result.sort((a, b) => {
-      let aValue, bValue;
-      if (sortField === 'VIPExpiry') {
-        aValue = a.VIPExpiry ? new Date(a.VIPExpiry) : new Date(0);
-        bValue = b.VIPExpiry ? new Date(b.VIPExpiry) : new Date(0);
-      } else if (sortField === 'VIPDays') {
-        aValue = parseInt(a.VIPDays) || 0;
-        bValue = parseInt(b.VIPDays) || 0;
-      } else {
-        aValue = a[sortField] || '';
-        bValue = b[sortField] || '';
-      }
-      if (sortDirection === "asc") {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
-    });
-
+    let result = filterCustomers(customers, searchTerm, selectedChannel);
+    result = sortCustomers(result, sortField, sortDirection);
     setFilteredCustomers(result);
     setCurrentPage(1);
   }, [searchTerm, sortField, sortDirection, customers, selectedChannel]);
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentCustomers = filteredCustomers.slice(startIndex, endIndex);
+  const currentCustomers = paginate(filteredCustomers, currentPage, itemsPerPage);
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
-  };
-
-  const renderPagination = () => {
-    const pages = [];
-    const maxVisiblePages = 5;
-    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-
-    if (endPage - startPage + 1 < maxVisiblePages) {
-      startPage = Math.max(1, endPage - maxVisiblePages + 1);
-    }
-
-    // Previous button
-    pages.push(
-      <button
-        key="prev"
-        onClick={() => handlePageChange(currentPage - 1)}
-        disabled={currentPage === 1}
-        className={`px-3 py-1 rounded-md text-sm font-medium ${
-          currentPage === 1
-            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-            : 'bg-white text-indigo-600 hover:bg-indigo-50 transition-colors'
-        } border border-gray-200`}
-      >
-        <span className="sr-only">Previous</span>
-        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-        </svg>
-      </button>
-    );
-
-    // First page
-    if (startPage > 1) {
-      pages.push(
-        <button
-          key="1"
-          onClick={() => handlePageChange(1)}
-          className="px-3 py-1 rounded-md text-sm font-medium bg-white text-indigo-600 hover:bg-indigo-50 transition-colors border border-gray-200"
-        >
-          1
-        </button>
-      );
-      if (startPage > 2) {
-        pages.push(
-          <span key="start-ellipsis" className="px-2 py-1">
-            ...
-          </span>
-        );
-      }
-    }
-
-    // Page numbers
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(
-        <button
-          key={i}
-          onClick={() => handlePageChange(i)}
-          className={`px-3 py-1 rounded-md text-sm font-medium ${
-            currentPage === i
-              ? 'bg-indigo-600 text-white'
-              : 'bg-white text-indigo-600 hover:bg-indigo-50 transition-colors'
-          } border border-gray-200`}
-        >
-          {i}
-        </button>
-      );
-    }
-
-    // Last page
-    if (endPage < totalPages) {
-      if (endPage < totalPages - 1) {
-        pages.push(
-          <span key="end-ellipsis" className="px-2 py-1">
-            ...
-          </span>
-        );
-      }
-      pages.push(
-        <button
-          key={totalPages}
-          onClick={() => handlePageChange(totalPages)}
-          className="px-3 py-1 rounded-md text-sm font-medium bg-white text-indigo-600 hover:bg-indigo-50 transition-colors border border-gray-200"
-        >
-          {totalPages}
-        </button>
-      );
-    }
-
-    // Next button
-    pages.push(
-      <button
-        key="next"
-        onClick={() => handlePageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        className={`px-3 py-1 rounded-md text-sm font-medium ${
-          currentPage === totalPages
-            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-            : 'bg-white text-indigo-600 hover:bg-indigo-50 transition-colors'
-        } border border-gray-200`}
-      >
-        <span className="sr-only">Next</span>
-        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-        </svg>
-      </button>
-    );
-
-    return pages;
   };
 
   return (
     <div className="min-h-screen ">
       <div className="mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="!text-2xl text-center w-full font-extrabold text-gray-900 tracking-tight">
-            Customer Management
-            <span className="block !text-xl tracking-normal font-medium text-gray-500 mt-1">
-              {filteredCustomers.length} total customers
-            </span>
-          </h1>
-          
-          {pageLoading ? (
-            <div className="bg-white p-2 rounded-md shadow flex items-center">
-              <svg className="animate-spin h-5 w-5 text-indigo-600 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <span className="text-sm font-medium text-gray-700">Loading...</span>
-            </div>
-          ) : null}
+          <div className="flex items-center w-full justify-between mx-6">
+            <h1 className="!text-2xl font-extrabold text-gray-900 tracking-tight">
+              Customer Management
+              <span className="block !text-xl tracking-normal font-medium text-gray-500 mt-1">
+                {filteredCustomers.length} total customers
+              </span>
+            </h1>
+            <button
+              onClick={handleRefresh}
+              title="Refresh Data"
+              className="ml-4 p-2 rounded-full bg-gray-100 hover:bg-indigo-200 transition-colors border border-gray-200 shadow-sm flex items-center justify-center"
+              aria-label="Refresh Data"
+            >
+              <HiOutlineRefresh className=" text-indigo-600" />
+            </button>
+          </div>
         </div>
         
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -280,7 +114,7 @@ export const Customers = () => {
                   onChange={e => setSelectedChannel(e.target.value)}
                 >
                   <option value="all">All Sales Channels</option>
-                  {salesChannels.map(channel => (
+                  {configuredChannels.map(channel => (
                     <option key={channel._id} value={channel._id}>{channel.name}</option>
                   ))}
                 </select>
@@ -358,13 +192,13 @@ export const Customers = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 text-sm text-center text-gray-700">{customer.phone || 'N/A'}</td>
+                      <td className="py-4 text-sm text-center text-gray-700 truncate">{customer.phone || 'N/A'}</td>
                       <td className="py-4 text-sm text-center text-gray-700 max-w-[230px] truncate " title={customer.email}>{customer.email || 'No email'}</td>
                       <td className="py-4 text-sm text-center text-gray-700">{customer.VIPDays || 'N/A'}</td>
                       <td className="py-4 text-sm text-center text-gray-700">{customer.VIPExpiry ? new Date(customer.VIPExpiry).toLocaleDateString() : 'N/A'}</td>
-                      <td className="py-4 text-sm text-center text-gray-700 max-w-[200px] flex items-center ml-6 gap-2" title={getSalesChannelName(customer.applicationId)}>
+                      <td className="py-4 text-sm text-center text-gray-700 max-w-[200px] flex items-center ml-6 gap-2" title={getSalesChannelName(configuredChannels, customer.applicationId)}>
                         {(() => {
-                          const channel = salesChannels.find((ch) => ch._id === customer.applicationId);
+                          const channel = configuredChannels.find((ch) => ch._id === customer.applicationId || ch.id === customer.applicationId);
                           return channel ? (
                             <>
                               {channel.logo?.secure_url && (
@@ -390,13 +224,13 @@ export const Customers = () => {
           </div>
           
           {/* Pagination - only if more than 15 entries */}
-          {filteredCustomers.length > 15 && currentCustomers.length > 0 && (
+          {filteredCustomers.length > 10 && currentCustomers.length > 0 && (
             <div className="bg-white px-6 py-4 border-t border-gray-200 flex items-center justify-between">
               <div className="text-sm text-gray-700">
-                Showing <span className="font-medium">{startIndex + 1}</span> to <span className="font-medium">{Math.min(endIndex, filteredCustomers.length)}</span> of <span className="font-medium">{filteredCustomers.length}</span> results
+                Showing <span className="font-medium">{currentPage * itemsPerPage - itemsPerPage + 1}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredCustomers.length)}</span> of <span className="font-medium">{filteredCustomers.length}</span> results
               </div>
               <div className="flex space-x-1">
-                {renderPagination()}
+                {renderPagination(currentPage, totalPages, handlePageChange)}
               </div>
             </div>
           )}

@@ -1,46 +1,26 @@
 import React from "react";
-import axios from "axios";
+import { useSelector, useDispatch } from "react-redux";
+import { saveAccessConfig, setAccessConfig } from "../../src/features/configureSlice";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { useParams } from "react-router-dom";
 
-const AccessConfig = ({
-  accessConfig,
-  setAccessConfig,
-  disabled,
-  setActiveTab,
-}) => {
-  const { company_id } = useParams();
+const AccessConfig = ({ accessConfig, company_id, disabled }) => {
+  const dispatch = useDispatch();
+  const { accessConfig: reduxAccessConfig, saving } = useSelector((state) => state.configure);
 
   const handleSave = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post(
-        import.meta.env.VITE_BACKEND_URL,
-        {
-          type: "client_credentials",
-          companyId: company_id,
-          clientId: accessConfig.clientId,
-          clientSecret: accessConfig.clientSecret,
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
+      await dispatch(
+        saveAccessConfig({ 
+          company_id: company_id,
+          clientId: reduxAccessConfig.clientId,
+          clientSecret: reduxAccessConfig.clientSecret,
+        })
+      ).unwrap();
       toast.success("Configuration saved successfully!");
-      console.log("API Response:", response.data);
-      setActiveTab("vip");
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Failed to save configuration"
-      );
-      console.error(
-        "Error saving configuration:",
-        error.response?.data || error.message
-      );
+      toast.error("Failed to save configuration");
     }
   };
 
@@ -64,7 +44,7 @@ const AccessConfig = ({
               Client ID
             </label>
             <div className="w-full px-3 py-2 bg-gray-50 border rounded-md border-gray-300 text-gray-700">
-              {accessConfig?.clientId}
+              {reduxAccessConfig?.clientId}
             </div>
           </div>
 
@@ -85,9 +65,9 @@ const AccessConfig = ({
             </label>
             <input
               type="text"
-              value={accessConfig.clientId}
+              value={reduxAccessConfig.clientId}
               onChange={(e) =>
-                setAccessConfig({ ...accessConfig, clientId: e.target.value })
+                dispatch(setAccessConfig({ ...reduxAccessConfig, clientId: e.target.value }))
               }
               className="w-full px-3 py-2 border rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Enter your client ID"
@@ -105,12 +85,9 @@ const AccessConfig = ({
             </label>
             <input
               type="password"
-              value={accessConfig.clientSecret}
+              value={reduxAccessConfig.clientSecret}
               onChange={(e) =>
-                setAccessConfig({
-                  ...accessConfig,
-                  clientSecret: e.target.value,
-                })
+                dispatch(setAccessConfig({ ...reduxAccessConfig, clientSecret: e.target.value }))
               }
               className="w-full px-3 py-2 border rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Enter your client secret"
@@ -127,9 +104,10 @@ const AccessConfig = ({
               <button
                 type="button"
                 className="w-full bg-blue-600 hover:cursor-pointer text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
-                onClick={(e) => handleSave(e)}
+                onClick={handleSave}
+                disabled={saving}
               >
-                Save Configuration
+                {saving ? "Saving..." : "Save Configuration"}
               </button>
             </div>
           )}
