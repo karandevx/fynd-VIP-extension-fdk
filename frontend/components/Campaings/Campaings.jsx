@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchCampaigns } from '../../src/features/campaigns/campaignsSlice';
 import TopBar from '../TopBar/TopBar';
 import { campaigns, campaignStatusColors } from '../../constants/campaigns';
 import { customers } from '../../constants/customers';
@@ -16,9 +18,12 @@ import { toast } from 'react-toastify';
 const SIDEBAR_WIDTH = '16rem';
 const EXAMPLE_MAIN_URL = window.location.origin;
 
-
 const Campaigns = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { company_id } = useParams();
+  const { campaigns: fetchedCampaigns, loading: isCampaignsLoading, error, lastFetched } = useSelector((state) => state.campaigns);
+
   const [showCreateCampaign, setShowCreateCampaign] = useState(false);
   const [showEmailTemplate, setShowEmailTemplate] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
@@ -35,17 +40,13 @@ const Campaigns = () => {
   const [selectedSaleschannels, setSelectedSaleschannels] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [products, setProductList] = useState([]);
-  const [fetchedCampaigns, setFetchedCampaigns] = useState([]);
-  const [isCampaignsLoading, setIsCampaignsLoading] = useState(false);
-
-console.log("showproductModal:", showProductModal);
 
   // State for Customer Modal
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
   const [customerSortField, setCustomerSortField] = useState('firstname');
   const [customerSortDirection, setCustomerSortDirection] = useState('asc');
   const [customerFilterVip, setCustomerFilterVip] = useState('all');
-    const { application_id, company_id } = useParams();
+  const { application_id } = useParams();
   
   // State for Product Modal
   const [productSearchTerm, setProductSearchTerm] = useState('');
@@ -78,16 +79,27 @@ console.log("showproductModal:", showProductModal);
     isApplicationLaunch() ? fetchApplicationProducts() : fetchProducts();
   }, [application_id]);
 
+  // Fetch campaigns only if data is not available or stale
   useEffect(() => {
-    fetchCampaigns();
-  }, [company_id]);
+    const shouldFetch = !lastFetched || Date.now() - new Date(lastFetched).getTime() > 5 * 60 * 1000; // 5 minutes cache
+    if (shouldFetch) {
+      dispatch(fetchCampaigns(company_id));
+    }
+  }, [company_id, lastFetched]);
 
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
+  const handleRefresh = () => {
+    dispatch(fetchCampaigns(company_id));
+  };
 
   const isApplicationLaunch = () => !!application_id;
 
-
   const fetchProducts = async () => {
-    // setPageLoading(true);
     try {
       const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, '/api/products/'),{
         headers: {
@@ -98,13 +110,10 @@ console.log("showproductModal:", showProductModal);
       setProductList(data.items);
     } catch (e) {
       console.error("Error fetching products:", e);
-    } finally {
-      // setPageLoading(false);
     }
   };
 
   const fetchApplicationProducts = async () => {
-    // setPageLoading(true);
     try {
       const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, `/api/products/application/${application_id}`),{
         headers: {
@@ -115,31 +124,8 @@ console.log("showproductModal:", showProductModal);
       setProductList(data.items);
     } catch (e) {
       console.error("Error fetching application products:", e);
-    } finally {
-      // setPageLoading(false);
     }
   };
-
-  const fetchCampaigns = async () => {
-    setIsCampaignsLoading(true);
-    try {
-      const { data } = await axios.get(`https://fetch-db-data-d9ca324b.serverless.boltic.app?module=campaigns&companyId=${company_id}&queryType=scan`, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      console.log("Fetched campaigns:", data);
-      if (data.success) {
-        setFetchedCampaigns(data.data);
-      } 
-    } catch (e) {
-      console.error("Error fetching campaigns:", e);
-    } finally {
-      setIsCampaignsLoading(false);
-    }
-  };
-
-  console.log("Products:", products);
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -412,6 +398,26 @@ console.log("showproductModal:", showProductModal);
                       Status {sortField === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
                     </button>
                   </div>
+                  <button
+                    onClick={handleRefresh}
+                    className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
+                    title="Refresh campaigns"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                  </button>
                 </div>
               </div>
             </div>
