@@ -34,16 +34,24 @@ const processShipmentEvent = async (
   const shipment = body?.payload?.shipment;
   if (!shipment) return console.log("No shipment data found");
 
-  const hasVIPProduct = shipment?.bags?.some((bag) =>
+  const vipItem = shipment?.bags?.find((bag) =>
     bag?.item?.meta?.tags?.includes("vip_product")
   );
+
+  const vipItemId = vipItem?.item?.id;
 
   const VIPDays = getVIPDaysFromTags(shipment?.bags);
   const { firstName, lastName, email, phone, userId } =
     extractUserInfo(shipment);
   const userName = shipment?.delivery_address?.name ?? "";
 
-  if (hasVIPProduct) {
+  if (vipItemId) {
+    const client = new MongoClient(uri);
+    await client.connect();
+    const db = client.db(`${companyId}_VIP_Program`);
+    const vipConfig = await db.collection("vip_configs").findOne({ companyId });
+
+    const type = getPlanKey(vipConfig, applicationId, vipItemId);
     const userPayload = {
       userId,
       firstName,
@@ -54,13 +62,21 @@ const processShipmentEvent = async (
       orderId: shipment?.order_id || "",
       applicationId,
       createdAt: new Date(shipment?.order_created),
-      VIPDays: VIPDays || 0,
-      VIPExpiry: getVIPExpiryDate(shipment?.order_created, VIPDays),
+      VIPDays: 0,
+      [`${type}_Expiry`]: getVIPExpiryDate(shipment?.order_created, VIPDays),
       updatedAt: new Date(),
+      isVIP: true,
+      [type]: true,
     };
 
     await upsertUser(userPayload, companyId);
-    await updateUserAttrDefinition(userId, companyId, applicationId);
+    await updateUserAttrDefinition(
+      vipConfig,
+      userId,
+      companyId,
+      applicationId,
+      vipItemId
+    );
   }
 
   const promoAndCodeIds = getPromoAndCodeIds(shipment?.bags);
@@ -87,7 +103,7 @@ const processShipmentEvent = async (
       vipConfig.promotions[applicationId]
     );
 
-    if (isPromoMatched) {
+    if (isPromoMatched && hasAnyPromoId) {
       const analyticsPayload = {
         userId,
         firstName,
@@ -100,6 +116,7 @@ const processShipmentEvent = async (
         createdAt: shipment?.bags?.[0]?.order_created || "",
         campaignId,
         promotionId: vipConfig.promotions[applicationId],
+        promotionType: vipConfig.type || "",
       };
 
       await db.collection("analytics").insertOne(analyticsPayload);
@@ -113,15 +130,93 @@ const processShipmentEvent = async (
     await client.close();
   }
 };
+function getUserGroupByItemCodeAndAppId(data, applicationId, itemCode) {
+  console.log("itemCode", itemCode);
+  console.log("data", JSON.stringify(data));
+  // Step 1: Find the matching VIP product object
+  const matchedVip = data.vipProducts.find((productObj) => {
+    const key = Object.keys(productObj)[0];
+    return productObj[key].uid === itemCode;
+  });
 
-const updateUserAttrDefinition = async (userId, companyId, applicationId) => {
+  if (!matchedVip) {
+    console.log("No VIP product found with this item code.");
+    return null;
+  }
+  console.log("matchedVip", JSON.stringify(matchedVip));
+  // Step 2: Extract the benefit key like "PRODUCT_EXCLUSIVITY"
+  const benefitKey = Object.keys(matchedVip)[0];
+
+  // Step 3: Fetch user group by application ID and benefit name
+  const userGroups = data.userAttributeIds?.[applicationId];
+  console.log("------------------------------------");
+  console.log("userGroups", JSON.stringify(userGroups));
+
+  if (!userGroups || userGroups.length === 0) {
+    console.log("No user group found for this application ID.");
+    return null;
+  }
+
+  console.log("benefitKey", benefitKey);
+  // Step 4: Match user group by name containing the benefit key
+  const matchedGroup = userGroups.find((group) =>
+    group.name.includes(benefitKey)
+  );
+
+  if (!matchedGroup) {
+    console.log("No matching user group found for the benefit.");
+    return null;
+  }
+
+  return matchedGroup;
+}
+function getPlanKey(data, applicationId, itemCode) {
+  console.log("itemCode", itemCode);
+  console.log("data", JSON.stringify(data));
+  // Step 1: Find the matching VIP product object
+  const matchedVip = data.vipProducts.find((productObj) => {
+    const key = Object.keys(productObj)[0];
+    return productObj[key].uid === itemCode;
+  });
+
+  if (!matchedVip) {
+    console.log("No VIP product found with this item code.");
+    return null;
+  }
+  console.log("matchedVip", JSON.stringify(matchedVip));
+  // Step 2: Extract the benefit key like "PRODUCT_EXCLUSIVITY"
+  const benefitKey = Object.keys(matchedVip)[0];
+
+  // Step 3: Fetch user group by application ID and benefit name
+  const userGroups = data.userAttributeIds?.[applicationId];
+  console.log("------------------------------------");
+  console.log("userGroups", JSON.stringify(userGroups));
+
+  if (!userGroups || userGroups.length === 0) {
+    console.log("No user group found for this application ID.");
+    return null;
+  }
+
+  console.log("benefitKey", benefitKey);
+  return benefitKey;
+}
+const updateUserAttrDefinition = async (
+  vipConfig,
+  userId,
+  companyId,
+  applicationId,
+  itemCode
+) => {
   try {
-    const client = new MongoClient(uri);
-    await client.connect();
-    const db = client.db(`${companyId}_VIP_Program`);
-    const vipConfig = await db.collection("vip_configs").findOne({ companyId });
+    const result = getUserGroupByItemCodeAndAppId(
+      vipConfig,
+      applicationId,
+      itemCode
+    );
 
-    const userAttributeId = vipConfig?.userAttributeIds?.[applicationId];
+    console.log("result", result);
+
+    const userAttributeId = result?.attributeId;
     if (!userAttributeId) {
       console.log(
         `No user attribute definition found for app ${applicationId}`
@@ -143,7 +238,7 @@ const updateUserAttrDefinition = async (userId, companyId, applicationId) => {
     };
 
     const url = `https://api.fynd.com/service/platform/user/v1.0/company/${companyId}/application/${applicationId}/user_attribute/definition/${userAttributeId}/user/${userId}`;
-    const response = await axiosClient.put(url, payload, config);
+    const response = await axios.put(url, payload, config);
     console.log("Attribute update response:", response?.data);
   } catch (error) {
     console.error("Error updating user attribute:", error?.message || error);
@@ -546,9 +641,7 @@ salesChannelRouter.post(
       // Build a quick lookup of existing plan slugs per appId
       for (const appId of existingAppIds) {
         existingPlansMap[appId] = new Set(
-          (userAttributesMap[appId] || []).map((attr) =>
-            attr.name.toLowerCase().replace(/ /g, "_")
-          )
+          (userAttributesMap[appId] || []).map((attr) => attr.name)
         );
       }
 
@@ -734,110 +827,112 @@ promotionRouter.post("/create-campaign", async function view(req, res, next) {
       if (!groupObj?.groupId) {
         continue; // Skip if no group found for this appId
       } else {
-        const prmotionPayload = {
-          buy_rules: {
-            "rule#1": {
-              item_id: getProductUIDs,
-            },
-          },
-          is_processed: true,
-          auto_apply: true,
-          discount_rules: [
-            {
-              discount_type: discount?.type,
-              offer: {
-                ...(discount?.type === "percentage" && {
-                  discount_percentage: discount?.value,
-                }),
-                ...(discount?.type === "amount" && {
-                  discount_amount: discount?.value,
-                }),
-              },
-              buy_condition: "( rule#1 )",
-              item_criteria: {
+        if (type !== "PRODUCT_EXCLUSIVITY") {
+          const prmotionPayload = {
+            buy_rules: {
+              "rule#1": {
                 item_id: getProductUIDs,
               },
-              buying_conditions_arr: [["rule#1"]],
             },
-          ],
-          apply_exclusive: "cart",
-          apply_all_discount: false,
-          stackable: true,
-          promo_group: "product",
-          apply_priority: 1,
-          mode: "promotion",
-          visiblility: {
-            coupon_list: false,
-            pdp: true,
-          },
-          restrictions: {
-            uses: {
-              remaining: {
-                user: 0,
-                total: 0,
+            is_processed: true,
+            auto_apply: true,
+            discount_rules: [
+              {
+                discount_type: discount?.type,
+                offer: {
+                  ...(discount?.type === "percentage" && {
+                    discount_percentage: discount?.value,
+                  }),
+                  ...(discount?.type === "amount" && {
+                    discount_amount: discount?.value,
+                  }),
+                },
+                buy_condition: "( rule#1 )",
+                item_criteria: {
+                  item_id: getProductUIDs,
+                },
+                buying_conditions_arr: [["rule#1"]],
               },
-              maximum: {
-                user: 0,
-                total: 0,
+            ],
+            apply_exclusive: "cart",
+            apply_all_discount: false,
+            stackable: true,
+            promo_group: "product",
+            apply_priority: 1,
+            mode: "promotion",
+            visiblility: {
+              coupon_list: false,
+              pdp: true,
+            },
+            restrictions: {
+              uses: {
+                remaining: {
+                  user: 0,
+                  total: 0,
+                },
+                maximum: {
+                  user: 0,
+                  total: 0,
+                },
               },
+              post_order: {
+                return_allowed: true,
+                cancellation_allowed: true,
+              },
+              platforms: ["web", "android", "ios"],
+              user_groups: [groupObj?.groupId],
+              user_id: [],
+              payments: {},
+              user_registered: {
+                start: null,
+                end: null,
+              },
+              ordering_stores: [],
+              user_type: "user_group",
+              email_domain: [],
             },
-            post_order: {
-              return_allowed: true,
-              cancellation_allowed: true,
+            post_order_action: {
+              action_type: null,
+              action_date: null,
             },
-            platforms: ["web", "android", "ios"],
-            user_groups: [groupObj?.groupId],
-            user_id: [],
-            payments: {},
-            user_registered: {
-              start: null,
-              end: null,
+            display_meta: {
+              name: name,
+              description: description,
+              offer_text: offerText,
+              offer_label: offerLabel,
             },
-            ordering_stores: [],
-            user_type: "user_group",
-            email_domain: [],
-          },
-          post_order_action: {
-            action_type: null,
-            action_date: null,
-          },
-          display_meta: {
-            name: name,
-            description: description,
-            offer_text: offerText,
-            offer_label: offerLabel,
-          },
-          reason: null,
-          promotion_type: discount?.type,
-          application_id: appId,
-          _custom_json: {},
-          _schedule: {
-            start: startDate,
-            end: endDate,
-            cron: null,
-            duration: 0,
-            published: true,
-            status: "approved",
-          },
-          ownership: {
-            payable_category: "seller",
-            payable_by: null,
-          },
-          calculate_on: "esp",
-        };
-        console.log("prmotionPayload", prmotionPayload);
-        try {
-          const response = await axios.post(
-            `https://api.fynd.com/service/platform/cart/v1.0/company/${companyId}/application/${appId}/promotion`,
-            prmotionPayload,
-            config
-          );
-          console.log("response", response);
+            reason: null,
+            promotion_type: discount?.type,
+            application_id: appId,
+            _custom_json: {},
+            _schedule: {
+              start: startDate,
+              end: endDate,
+              cron: null,
+              duration: 0,
+              published: true,
+              status: "approved",
+            },
+            ownership: {
+              payable_category: "seller",
+              payable_by: null,
+            },
+            calculate_on: "esp",
+          };
+          console.log("prmotionPayload", prmotionPayload);
+          try {
+            const response = await axios.post(
+              `https://api.fynd.com/service/platform/cart/v1.0/company/${companyId}/application/${appId}/promotion`,
+              prmotionPayload,
+              config
+            );
+            console.log("response", response);
 
-          promotions[appId] = response?.data?._id;
-        } catch (err) {
-          console.error(`Failed for app ${appId}:`, err?.message || err);
-          failedApps.push({ appId });
+            promotions[appId] = response?.data?._id;
+          } catch (err) {
+            console.error(`Failed for app ${appId}:`, err?.message || err);
+            failedApps.push({ appId });
+          }
         }
       }
     }
@@ -847,17 +942,16 @@ promotionRouter.post("/create-campaign", async function view(req, res, next) {
       campaignId: campaignId,
       companyId: companyId,
       applicationIds: appIds,
-      promotions: promotions,
+      promotions: promotions || {},
       products: products,
-      isFreeShipping: isFreeShipping,
-      discount: discount,
+      discount: discount || {},
       startDate: startDate,
       endDate: endDate,
-      preLaunchDays: preLaunchDays,
+      preLaunchDays: preLaunchDays || 0,
       name: name,
-      offerText: offerText,
-      offerLabel: offerLabel,
-      description: description,
+      offerText: offerText || "",
+      offerLabel: offerLabel || "",
+      description: description || "",
       type: groupName,
       createdAt: new Date(),
     };

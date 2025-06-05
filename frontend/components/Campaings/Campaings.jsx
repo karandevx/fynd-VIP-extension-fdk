@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchCampaigns } from '../../src/features/campaigns/campaignsSlice';
 import TopBar from '../TopBar/TopBar';
 import { campaigns, campaignStatusColors } from '../../constants/campaigns';
 import { customers } from '../../constants/customers';
@@ -16,9 +18,12 @@ import { toast } from 'react-toastify';
 const SIDEBAR_WIDTH = '16rem';
 const EXAMPLE_MAIN_URL = window.location.origin;
 
-
 const Campaigns = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { company_id } = useParams();
+  const { campaigns: fetchedCampaigns, loading: isCampaignsLoading, error, lastFetched } = useSelector((state) => state.campaigns);
+
   const [showCreateCampaign, setShowCreateCampaign] = useState(false);
   const [showEmailTemplate, setShowEmailTemplate] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
@@ -35,17 +40,13 @@ const Campaigns = () => {
   const [selectedSaleschannels, setSelectedSaleschannels] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [products, setProductList] = useState([]);
-  const [fetchedCampaigns, setFetchedCampaigns] = useState([]);
-  const [isCampaignsLoading, setIsCampaignsLoading] = useState(false);
-
-console.log("showproductModal:", showProductModal);
 
   // State for Customer Modal
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
   const [customerSortField, setCustomerSortField] = useState('firstname');
   const [customerSortDirection, setCustomerSortDirection] = useState('asc');
   const [customerFilterVip, setCustomerFilterVip] = useState('all');
-    const { application_id, company_id } = useParams();
+  const { application_id } = useParams();
   
   // State for Product Modal
   const [productSearchTerm, setProductSearchTerm] = useState('');
@@ -74,20 +75,42 @@ console.log("showproductModal:", showProductModal);
 
   const { register, handleSubmit, formState: { errors }, watch, setValue } = methods;
 
+  // Add form methods for email template
+  const emailTemplateMethods = useForm({
+    defaultValues: {
+      emailTemplate: {
+        subject: '',
+        prompt: '',
+        content: ''
+      }
+    }
+  });
+
   useEffect(() => {
     isApplicationLaunch() ? fetchApplicationProducts() : fetchProducts();
   }, [application_id]);
 
+  // Fetch campaigns only if data is not available or stale
   useEffect(() => {
-    fetchCampaigns();
-  }, [company_id]);
+    const shouldFetch = !lastFetched || Date.now() - new Date(lastFetched).getTime() > 5 * 60 * 1000; // 5 minutes cache
+    if (shouldFetch) {
+      dispatch(fetchCampaigns(company_id));
+    }
+  }, [company_id, lastFetched]);
 
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
+  const handleRefresh = () => {
+    dispatch(fetchCampaigns(company_id));
+  };
 
   const isApplicationLaunch = () => !!application_id;
 
-
   const fetchProducts = async () => {
-    // setPageLoading(true);
     try {
       const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, '/api/products/'),{
         headers: {
@@ -98,13 +121,10 @@ console.log("showproductModal:", showProductModal);
       setProductList(data.items);
     } catch (e) {
       console.error("Error fetching products:", e);
-    } finally {
-      // setPageLoading(false);
     }
   };
 
   const fetchApplicationProducts = async () => {
-    // setPageLoading(true);
     try {
       const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, `/api/products/application/${application_id}`),{
         headers: {
@@ -115,31 +135,8 @@ console.log("showproductModal:", showProductModal);
       setProductList(data.items);
     } catch (e) {
       console.error("Error fetching application products:", e);
-    } finally {
-      // setPageLoading(false);
     }
   };
-
-  const fetchCampaigns = async () => {
-    setIsCampaignsLoading(true);
-    try {
-      const { data } = await axios.get(`https://fetch-db-data-d9ca324b.serverless.boltic.app?module=campaigns&companyId=${company_id}&queryType=scan`, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      console.log("Fetched campaigns:", data);
-      if (data.success) {
-        setFetchedCampaigns(data.data);
-      } 
-    } catch (e) {
-      console.error("Error fetching campaigns:", e);
-    } finally {
-      setIsCampaignsLoading(false);
-    }
-  };
-
-  console.log("Products:", products);
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -233,11 +230,11 @@ console.log("showproductModal:", showProductModal);
       return 0;
     });
 
-  const handleProductSelect = (productId) => {
+  const handleProductSelect = (product) => {
     setSelectedProducts(prev => 
-      prev.includes(productId)
-        ? prev?.filter(id => id !== productId)
-        : [...prev, productId]
+      prev.some(p => p.uid === product.uid)
+        ? prev.filter(p => p.uid !== product.uid)
+        : [...prev, { uid: product.uid, item_code: product.item_code }]
     );
   };
 
@@ -249,20 +246,23 @@ console.log("showproductModal:", showProductModal);
     );
   };
 
-  const handleSelectAllProducts = (productUidsToToggle) => {
+  const handleSelectAllProducts = (productsToToggle) => {
     setSelectedProducts(prev => {
-      const allSelectedInList = productUidsToToggle.every(uid => prev.includes(uid));
+      const allSelectedInList = productsToToggle.every(product => 
+        prev.some(p => p.uid === product.uid)
+      );
       const newSelected = new Set(prev);
 
       if (allSelectedInList) {
         // Deselect all in the current list
-        productUidsToToggle.forEach(uid => newSelected.delete(uid));
+        return prev.filter(p => !productsToToggle.some(product => product.uid === p.uid));
       } else {
         // Select all in the current list
-        productUidsToToggle.forEach(uid => newSelected.add(uid));
+        return [...prev, ...productsToToggle.map(product => ({ 
+          uid: product.uid, 
+          item_code: product.item_code 
+        }))];
       }
-
-      return Array.from(newSelected);
     });
   };
 
@@ -283,11 +283,11 @@ console.log("showproductModal:", showProductModal);
     });
   };
 
-  const handleIndividualProductSelect = (productId) => {
+  const handleIndividualProductSelect = (product) => {
     setSelectedProducts(prev => 
-      prev.includes(productId)
-        ? prev?.filter(id => id !== productId)
-        : [...prev, productId]
+      prev.some(p => p.uid === product.uid)
+        ? prev.filter(p => p.uid !== product.uid)
+        : [...prev, { uid: product.uid, item_code: product.item_code }]
     );
   };
 
@@ -412,6 +412,26 @@ console.log("showproductModal:", showProductModal);
                       Status {sortField === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
                     </button>
                   </div>
+                  <button
+                    onClick={handleRefresh}
+                    className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
+                    title="Refresh campaigns"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                  </button>
                 </div>
               </div>
             </div>
@@ -494,33 +514,46 @@ console.log("showproductModal:", showProductModal);
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button
-                            onClick={async () => {
-                              setIsLoading(true);
-                              try {
-                                const response = await axios.post('https://create-campaign-af13fce1.serverless.boltic.app', {
-                                  type: 'send_email',
-                                  companyId: campaign?.companyId,
-                                  campaignId: campaign?.campaignId,
-                                }, {
-                                  headers: { 'Content-Type': 'application/json' }
-                                });
-                                if (response.data.success) {
-                                  toast.success('Email sent successfully!');
-                                } else {
-                                  throw new Error(response.data.message || 'Failed to send email');
+                          {campaign?.htmlContent && campaign?.subject ? (
+                            <button
+                              onClick={async () => {
+                                setIsLoading(true);
+                                try {
+                                  const response = await axios.post('https://create-campaign-af13fce1.serverless.boltic.app', {
+                                    type: 'send_email',
+                                    companyId: campaign?.companyId,
+                                    campaignId: campaign?.campaignId,
+                                  }, {
+                                    headers: { 'Content-Type': 'application/json' }
+                                  });
+                                  if (response.data.success) {
+                                    toast.success('Email sent successfully!');
+                                  } else {
+                                    throw new Error(response.data.message || 'Failed to send email');
+                                  }
+                                } catch (error) {
+                                  toast.error(`Error sending email: ${error.message}`);
+                                } finally {
+                                  setIsLoading(false);
                                 }
-                              } catch (error) {
-                                toast.error(`Error sending email: ${error.message}`);
-                              } finally {
-                                setIsLoading(false);
-                              }
-                            }}
-                            className="text-blue-600 hover:text-blue-900 cursor-pointer mr-4"
-                            disabled={isLoading}
-                          >
-                            Send Email
-                          </button>
+                              }}
+                              className="text-blue-600 hover:text-blue-900 cursor-pointer mr-4"
+                              disabled={isLoading}
+                            >
+                              Send Email
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setSelectedCampaign(campaign);
+                                setShowEmailTemplate(true);
+                                setCurrentStep(2);
+                              }}
+                              className="text-blue-600 hover:text-blue-900 cursor-pointer mr-4"
+                            >
+                              Add Email Template
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -549,50 +582,30 @@ console.log("showproductModal:", showProductModal);
 
           {/* Email Template Modal */}
           {showEmailTemplate && selectedCampaign && (
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
-              <div className="bg-white rounded-lg max-w-4xl w-full">
+            <div className="fixed inset-0 bg-[#cbdaf561] bg-opacity-25 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg max-w-4xl h-[90%] overflow-y-auto w-full">
                 <div className="p-6">
                   <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold">Email Template</h2>
                     <button
-                      onClick={() => setShowEmailTemplate(false)}
+                      onClick={() => {
+                        setShowEmailTemplate(false);
+                        setSelectedCampaign(null);
+                      }}
                       className="text-gray-500 hover:text-gray-700"
                     >
                       ×
                     </button>
                   </div>
-
-                  <div className="space-y-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Subject</label>
-                      <div className="mt-1 text-gray-900">{selectedcampaign?.emailTemplate.subject}</div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Content</label>
-                      <div className="mt-1 border rounded-md p-4 bg-gray-50">
-                        <div dangerouslySetInnerHTML={{ __html: selectedcampaign?.emailTemplate.content }} />
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end space-x-3">
-                      <button
-                        onClick={() => setShowEmailTemplate(false)}
-                        className="px-4 py-2 text-gray-700 hover:text-gray-900"
-                      >
-                        Close
-                      </button>
-                      <button
-                        onClick={() => {
-                          // Handle send email
-                          setShowEmailTemplate(false);
-                        }}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                      >
-                        Send Email
-                      </button>
-                    </div>
-                  </div>
+                  <FormProvider {...emailTemplateMethods}>
+                    <EmailTemplateForm
+                      setCurrentStep={setCurrentStep}
+                      setShowCreateCampaign={setShowEmailTemplate}
+                      campaignId={selectedCampaign?.campaignId}
+                      companyId={company_id}
+                      campaign={selectedCampaign}
+                    />
+                  </FormProvider>
                 </div>
               </div>
             </div>
@@ -624,7 +637,7 @@ console.log("showproductModal:", showProductModal);
         onClose={() => setShowProductModal(false)}
         selectedProducts={selectedProducts}
         onProductSelect={handleIndividualProductSelect}
-        onSelectAllProducts={() => handleSelectAllProducts(filteredAndSortedProducts.map(p => p.uid))}
+        onSelectAllProducts={() => handleSelectAllProducts(filteredAndSortedProducts)}
         products={filteredAndSortedProducts}
         isLoading={isLoading}
         productSearchTerm={productSearchTerm}

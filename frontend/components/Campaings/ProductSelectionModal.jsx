@@ -17,7 +17,9 @@ const ProductSelectionModal = ({
 }) => {
   if (!showModal) return null;
 
-  const allVisibleSelected = products?.length > 0 && products.every(p => selectedProducts?.includes(p?.uid));
+  const allVisibleSelected = products?.length > 0 && products.every(p => 
+    selectedProducts?.some(selected => selected.uid === p.uid)
+  );
 
   const handleProductSort = (field) => {
     if (productSortField === field) {
@@ -83,7 +85,7 @@ const ProductSelectionModal = ({
               <input
                 type="checkbox"
                 checked={allVisibleSelected}
-                onChange={() => onSelectAllProducts(products.map(p => p.uid))}
+                onChange={() => onSelectAllProducts(products)}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
               <span className="ml-2">{`Select All (${products?.length} visible)`}</span>
@@ -108,8 +110,8 @@ const ProductSelectionModal = ({
                   >
                     <input
                       type="checkbox"
-                      checked={selectedProducts.includes(product.uid)}
-                      onChange={() => onProductSelect(product.uid)}
+                      checked={selectedProducts.some(selected => selected.uid === product.uid)}
+                      onChange={() => onProductSelect(product)}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <div className="ml-3 text-sm text-gray-900 flex-1 flex items-center">
