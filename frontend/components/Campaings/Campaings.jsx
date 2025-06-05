@@ -75,6 +75,17 @@ const Campaigns = () => {
 
   const { register, handleSubmit, formState: { errors }, watch, setValue } = methods;
 
+  // Add form methods for email template
+  const emailTemplateMethods = useForm({
+    defaultValues: {
+      emailTemplate: {
+        subject: '',
+        prompt: '',
+        content: ''
+      }
+    }
+  });
+
   useEffect(() => {
     isApplicationLaunch() ? fetchApplicationProducts() : fetchProducts();
   }, [application_id]);
@@ -503,33 +514,46 @@ const Campaigns = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button
-                            onClick={async () => {
-                              setIsLoading(true);
-                              try {
-                                const response = await axios.post('https://create-campaign-af13fce1.serverless.boltic.app', {
-                                  type: 'send_email',
-                                  companyId: campaign?.companyId,
-                                  campaignId: campaign?.campaignId,
-                                }, {
-                                  headers: { 'Content-Type': 'application/json' }
-                                });
-                                if (response.data.success) {
-                                  toast.success('Email sent successfully!');
-                                } else {
-                                  throw new Error(response.data.message || 'Failed to send email');
+                          {campaign?.htmlContent && campaign?.subject ? (
+                            <button
+                              onClick={async () => {
+                                setIsLoading(true);
+                                try {
+                                  const response = await axios.post('https://create-campaign-af13fce1.serverless.boltic.app', {
+                                    type: 'send_email',
+                                    companyId: campaign?.companyId,
+                                    campaignId: campaign?.campaignId,
+                                  }, {
+                                    headers: { 'Content-Type': 'application/json' }
+                                  });
+                                  if (response.data.success) {
+                                    toast.success('Email sent successfully!');
+                                  } else {
+                                    throw new Error(response.data.message || 'Failed to send email');
+                                  }
+                                } catch (error) {
+                                  toast.error(`Error sending email: ${error.message}`);
+                                } finally {
+                                  setIsLoading(false);
                                 }
-                              } catch (error) {
-                                toast.error(`Error sending email: ${error.message}`);
-                              } finally {
-                                setIsLoading(false);
-                              }
-                            }}
-                            className="text-blue-600 hover:text-blue-900 cursor-pointer mr-4"
-                            disabled={isLoading}
-                          >
-                            Send Email
-                          </button>
+                              }}
+                              className="text-blue-600 hover:text-blue-900 cursor-pointer mr-4"
+                              disabled={isLoading}
+                            >
+                              Send Email
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setSelectedCampaign(campaign);
+                                setShowEmailTemplate(true);
+                                setCurrentStep(2);
+                              }}
+                              className="text-blue-600 hover:text-blue-900 cursor-pointer mr-4"
+                            >
+                              Add Email Template
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -558,50 +582,30 @@ const Campaigns = () => {
 
           {/* Email Template Modal */}
           {showEmailTemplate && selectedCampaign && (
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
-              <div className="bg-white rounded-lg max-w-4xl w-full">
+            <div className="fixed inset-0 bg-[#cbdaf561] bg-opacity-25 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg max-w-4xl h-[90%] overflow-y-auto w-full">
                 <div className="p-6">
                   <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold">Email Template</h2>
                     <button
-                      onClick={() => setShowEmailTemplate(false)}
+                      onClick={() => {
+                        setShowEmailTemplate(false);
+                        setSelectedCampaign(null);
+                      }}
                       className="text-gray-500 hover:text-gray-700"
                     >
                       ×
                     </button>
                   </div>
-
-                  <div className="space-y-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Subject</label>
-                      <div className="mt-1 text-gray-900">{selectedcampaign?.emailTemplate.subject}</div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Content</label>
-                      <div className="mt-1 border rounded-md p-4 bg-gray-50">
-                        <div dangerouslySetInnerHTML={{ __html: selectedcampaign?.emailTemplate.content }} />
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end space-x-3">
-                      <button
-                        onClick={() => setShowEmailTemplate(false)}
-                        className="px-4 py-2 text-gray-700 hover:text-gray-900"
-                      >
-                        Close
-                      </button>
-                      <button
-                        onClick={() => {
-                          // Handle send email
-                          setShowEmailTemplate(false);
-                        }}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                      >
-                        Send Email
-                      </button>
-                    </div>
-                  </div>
+                  <FormProvider {...emailTemplateMethods}>
+                    <EmailTemplateForm
+                      setCurrentStep={setCurrentStep}
+                      setShowCreateCampaign={setShowEmailTemplate}
+                      campaignId={selectedCampaign?.campaignId}
+                      companyId={company_id}
+                      campaign={selectedCampaign}
+                    />
+                  </FormProvider>
                 </div>
               </div>
             </div>

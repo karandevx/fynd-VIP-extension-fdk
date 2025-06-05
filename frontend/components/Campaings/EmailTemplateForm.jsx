@@ -8,6 +8,7 @@ const EmailTemplateForm = ({
   setShowCreateCampaign,
   campaignId,
   companyId,
+  campaign,
 }) => {
   const {
     register,
@@ -15,6 +16,7 @@ const EmailTemplateForm = ({
     watch,
     setValue,
     handleSubmit,
+    getValues,
   } = useFormContext();
 
   // State for generated email HTML, loading, and generation count
@@ -27,19 +29,61 @@ const EmailTemplateForm = ({
   const defaultSubject = "Exclusive VIP Offer Just for You!";
 
   // Helper to build the dynamic prompt
-  const buildPrompt = (discount, startDate, endDate) => {
-    const formatMonthDay = (dateString) => {
-      if (!dateString) return "a future date";
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return "a future date";
-      const options = { month: "long", day: "numeric" };
-      return date.toLocaleDateString(undefined, options);
-    };
-    const formattedStartDate = formatMonthDay(startDate);
-    const formattedEndDate = formatMonthDay(endDate);
-    const discountTypeIndicator = discount?.type === "percentage" ? "%" : "";
-    const discountValue = discount?.value || 0;
-    return `I'm giving ${discountValue}${discountTypeIndicator} off to VIP users from ${formattedStartDate} to ${formattedEndDate}. Generate a responsive HTML email.`;
+  const buildPrompt = (campaign) => {
+    let prompt = "";
+
+    // Discount
+    let discountText = "";
+    if (
+      campaign.discount &&
+      campaign.discount.value &&
+      Number(campaign.discount.value) > 0
+    ) {
+      const type =
+        campaign.discount.type === "percentage"
+          ? "%"
+          : campaign.discount.type === "amount"
+          ? "₹"
+          : "";
+      discountText = `Enjoy ${campaign.discount.value}${type} off`;
+    }
+
+    // Dates
+    let dateText = "";
+    if (campaign.startDate && campaign.endDate) {
+      const start = new Date(campaign.startDate);
+      const end = new Date(campaign.endDate);
+      if (!isNaN(start) && !isNaN(end)) {
+        dateText = `from ${start.toLocaleDateString()} to ${end.toLocaleDateString()}`;
+      }
+    }
+
+    // Campaign type
+    if (campaign.type === "PRODUCT_EXCLUSIVITY") {
+      prompt = `Announce a VIP-only pre-launch for selected products$${
+        campaign.preLaunchDays
+          ? ` with ${campaign.preLaunchDays} days of early access`
+          : ""
+      }.`;
+    } else if (campaign.type === "CUSTOM_PROMOTIONS") {
+      prompt = `${discountText ? discountText : "Special promotion for VIP users"}${
+        dateText ? " " + dateText : ""
+      }. ${campaign.offerText ? campaign.offerText + ". " : ""}Generate a responsive HTML email.`;
+    } else if (campaign.type === "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS") {
+      prompt = `Announce a VIP pre-launch$${
+        campaign.preLaunchDays
+          ? ` with ${campaign.preLaunchDays} days of early access`
+          : ""
+      } and a special promotion${
+        discountText ? `: ${discountText}` : ""
+      }${dateText ? " " + dateText : ""}. ${
+        campaign.offerText ? campaign.offerText + ". " : ""
+      }Generate a responsive HTML email.`;
+    } else {
+      prompt = "Announce a special offer for VIP users. Generate a responsive HTML email.";
+    }
+
+    return prompt;
   };
 
   // Effect to set prompt on mount and when campaign fields change
@@ -56,7 +100,7 @@ const EmailTemplateForm = ({
       ) {
         const campaignData = watch();
         const { discount, startDate, endDate } = campaignData;
-        const autoPrompt = buildPrompt(discount, startDate, endDate);
+        const autoPrompt = buildPrompt(campaignData);
         const currentPrompt = watch("emailTemplate.prompt");
         // Only update if the prompt is empty or matches the last auto-generated prompt
         if (!currentPrompt || currentPrompt === lastAutoPrompt) {
@@ -68,14 +112,42 @@ const EmailTemplateForm = ({
     // On mount, set prompt if empty
     const campaignData = watch();
     const { discount, startDate, endDate } = campaignData;
-    const autoPrompt = buildPrompt(discount, startDate, endDate);
+    const autoPrompt = buildPrompt(campaignData);
     const currentPrompt = watch("emailTemplate.prompt");
     if (!currentPrompt) {
       setValue("emailTemplate.prompt", autoPrompt);
       setLastAutoPrompt(autoPrompt);
     }
     return () => subscription.unsubscribe();
-  }, [watch, setValue, lastAutoPrompt]);
+  }, [watch, setValue, lastAutoPrompt, campaign]);
+
+  useEffect(() => {
+    if (campaign) {
+      // Dynamic subject
+      if (!getValues("emailTemplate.subject")) {
+        let subject = "Exclusive VIP Offer Just for You!";
+        if (campaign.type === "PRODUCT_EXCLUSIVITY") {
+          subject = "Be the First: Exclusive Product Pre-Launch for VIPs!";
+        } else if (campaign.type === "CUSTOM_PROMOTIONS") {
+          subject = "Special Promotion Just for You!";
+        } else if (campaign.type === "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS") {
+          subject = "VIP Early Access + Special Promotion!";
+        }
+        setValue("emailTemplate.subject", subject);
+      }
+
+      // Dynamic prompt (improved)
+      if (!getValues("emailTemplate.prompt")) {
+        setValue("emailTemplate.prompt", buildPrompt(campaign));
+      }
+    }
+  }, [campaign, setValue, getValues]);
+
+  // Helper to extract <body> content from HTML
+  function extractBody(html) {
+    const match = html.match(/<body[^>]*>((.|[\n\r])*)<\/body>/im);
+    return match ? match[1] : html;
+  }
 
   // Regenerate handler
   const handleRegenerate = async () => {
@@ -99,6 +171,7 @@ const EmailTemplateForm = ({
       );
       if (response.data.success) {
         setGeneratedHtml(response.data.data);
+        setValue("emailTemplate.content", response.data.data);
         toast.success("Email template generated successfully!");
       } else {
         throw new Error(
@@ -213,6 +286,34 @@ const EmailTemplateForm = ({
           </p>
         )}
       </div>
+      {/* Email Content Editor & Preview */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Email Content (HTML)
+        </label>
+        <textarea
+          className="w-full min-h-[200px] border rounded p-2 font-mono"
+          value={watch("emailTemplate.content") || ""}
+          onChange={e => setValue("emailTemplate.content", e.target.value)}
+        />
+      </div>
+      <div>
+        <h3 className="text-lg font-semibold text-gray-800 mb-3">
+          Email Preview
+        </h3>
+        <div className="border border-gray-200 rounded-md p-4 bg-gray-50 shadow-inner overflow-x-auto min-h-[200px]">
+          {watch("emailTemplate.content") ? (
+            <div
+              dangerouslySetInnerHTML={{ __html: extractBody(watch("emailTemplate.content")) }}
+              className="prose max-w-none text-gray-800"
+            ></div>
+          ) : (
+            <p className="text-gray-500">
+              Please enter email content above to see the preview.
+            </p>
+          )}
+        </div>
+      </div>
       {/* Regenerate Button */}
       <div className="flex justify-start mt-4">
         <button
@@ -239,26 +340,6 @@ const EmailTemplateForm = ({
             Maximum generation attempts reached.
           </span>
         )}
-      </div>
-      {/* Email Preview */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-800 mb-3">
-          Email Preview
-        </h3>
-        <div className="border border-gray-200 rounded-md p-4 bg-gray-50 shadow-inner overflow-x-auto">
-          {isGenerating ? (
-            <p className="text-gray-500">Generating email preview...</p>
-          ) : generatedHtml ? (
-            <div
-              dangerouslySetInnerHTML={{ __html: generatedHtml }}
-              className="prose max-w-none text-gray-800"
-            ></div>
-          ) : (
-            <p className="text-gray-500">
-              Click 'Generate and Preview' to see the email content.
-            </p>
-          )}
-        </div>
       </div>
       {/* Navigation Buttons */}
       <div className="flex justify-end space-x-4 pt-6 border-t">
