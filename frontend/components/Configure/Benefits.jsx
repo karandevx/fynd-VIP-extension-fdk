@@ -1,149 +1,69 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import urlJoin from "url-join";
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  setInitialState,
+  togglePlan,
+  updatePlan,
+  toggleChannel,
+  toggleAllChannels,
+  fetchSalesChannels,
+  saveBenefits,
+} from '../../src/features/benefits/benefitsSlice';
 
 const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
   const EXAMPLE_MAIN_URL = window.location.origin;
   const { company_id } = useParams();
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [salesChannels, setSalesChannels] = useState([]);
-  const [selectedChannels, setSelectedChannels] = useState(applicationIds);
+  const dispatch = useDispatch();
+  const hasFetchedRef = useRef(false);
+  const {
+    plans,
+    salesChannels,
+    selectedChannels,
+    loading,
+    saving,
+    error,
+    isConfigured,
+    hasChanges,
+  } = useSelector((state) => state.benefits);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [plans, setPlans] = useState(
-    initialPlans.length > 0
-      ? initialPlans
-      : [
-          {
-            title: "PRODUCT_EXCLUSIVITY",
-            isEnabled: false,
-            description: "",
-            img: "",
-          },
-          {
-            title: "CUSTOM_PROMOTIONS",
-            isEnabled: false,
-            description: "",
-            img: "",
-          },
-          {
-            title: "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS",
-            isEnabled: false,
-            description: "",
-            img: "",
-          },
-        ]
-  );
-  const [isConfigured, setIsConfigured] = useState(
-    initialPlans.length > 0 && applicationIds.length > 0 ? true : false
-  );
-  const [hasChanges, setHasChanges] = useState(false);
-  const [originalState, setOriginalState] = useState({
-    plans: [],
-    selectedChannels: []
-  });
 
   useEffect(() => {
     if (initialPlans.length > 0 && applicationIds.length > 0) {
-      setOriginalState({
-        plans: [...initialPlans],
-        selectedChannels: [...applicationIds]
-      });
+      dispatch(setInitialState({ initialPlans, applicationIds }));
     }
   }, [initialPlans, applicationIds]);
 
-  const checkForChanges = (newPlans, newChannels) => {
-    const plansChanged = JSON.stringify(newPlans) !== JSON.stringify(originalState.plans);
-    const channelsChanged = JSON.stringify(newChannels) !== JSON.stringify(originalState.selectedChannels);
-    setHasChanges(plansChanged || channelsChanged);
-  };
-
-  const fetchSalesChannels = async () => {
-    setLoading(true);
-    try {
-      const { data } = await axios.get(
-        urlJoin(EXAMPLE_MAIN_URL, "/api/sales"),
-        {
-          headers: {
-            "x-company-id": company_id,
-          },
-        }
-      );
-      console.log("Fetched sales:", data);
-      setSalesChannels(data.items || []);
-    } catch (e) {
-      console.error("Error fetching sales:", e);
-      toast.error("Failed to fetch sales");
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (salesChannels.length === 0) {
+      dispatch(fetchSalesChannels(company_id));
     }
-  };
+  }, [company_id, salesChannels.length]);
 
   useEffect(() => {
-    fetchSalesChannels();
-  }, [company_id]);
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
 
   const handlePlansToggle = (index) => {
-    if (originalState.plans[index]?.isEnabled) {
-      return;
-    }
-    setPlans((prev) => {
-      const newPlan = [...prev];
-      newPlan[index] = {
-        ...newPlan[index],
-        isEnabled: !newPlan[index].isEnabled,
-        description: !newPlan[index].isEnabled
-          ? ""
-          : newPlan[index].description,
-        img: !newPlan[index].isEnabled ? "" : newPlan[index].img,
-      };
-      checkForChanges(newPlan, selectedChannels);
-      return newPlan;
-    });
+    dispatch(togglePlan({ index }));
   };
 
   const handlePlanChange = (index, field, value) => {
-    if (originalState.plans[index]?.isEnabled) {
-      setPlans((prev) => {
-        const newPlan = [...prev];
-        newPlan[index] = {
-          ...newPlan[index],
-          [field]: value,
-        };
-        checkForChanges(newPlan, selectedChannels);
-        return newPlan;
-      });
-    } else if (plans[index].isEnabled) {
-      setPlans((prev) => {
-        const newPlan = [...prev];
-        newPlan[index] = {
-          ...newPlan[index],
-          [field]: value,
-        };
-        checkForChanges(newPlan, selectedChannels);
-        return newPlan;
-      });
-    }
+    dispatch(updatePlan({ index, field, value }));
   };
 
   const handleChannelSelect = (channelId) => {
-    if (originalState.selectedChannels.includes(channelId)) {
-      return;
-    }
-    setSelectedChannels((prev) => {
-      const newChannels = prev.includes(channelId)
-        ? prev.filter((id) => id !== channelId)
-        : [...prev, channelId];
-      checkForChanges(plans, newChannels);
-      return newChannels;
-    });
+    dispatch(toggleChannel(channelId));
   };
 
   const handleSelectAll = () => {
-    const allOriginalChannelsSelected = originalState.selectedChannels.every(channelId =>
+    const allOriginalChannelsSelected = selectedChannels.every(channelId =>
       selectedChannels.includes(channelId)
     );
     
@@ -151,13 +71,10 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
       return;
     }
 
-    setSelectedChannels((prev) => {
-      const newChannels = prev.length === filteredChannels.length
-        ? originalState.selectedChannels
-        : filteredChannels.map((channel) => channel.id);
-      checkForChanges(plans, newChannels);
-      return newChannels;
-    });
+    dispatch(toggleAllChannels({
+      allSelected: allOriginalChannelsSelected,
+      channels: filteredChannels
+    }));
   };
 
   const uploadImageToCloudinary = async (file) => {
@@ -205,43 +122,21 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
       return;
     }
 
-    setSaving(true);
-    try {
-      const configuredPlans = plans?.map((plan) => ({
-        title: plan.title,
-        isEnabled: plan.isEnabled,
-        description: plan.isEnabled ? plan.description : "",
-        img: plan.isEnabled ? plan.img : "",
-      }));
-      const { data } = await axios.post(
-        urlJoin(EXAMPLE_MAIN_URL, "/api/sales/configure-plans"),
-        {
-          salesChannels: selectedChannels,
-          configuredPlans: configuredPlans,
-        },
-        {
-          headers: {
-            "x-company-id": company_id,
-          },
-        }
-      );
+    const configuredPlans = plans?.map((plan) => ({
+      title: plan.title,
+      isEnabled: plan.isEnabled,
+      description: plan.isEnabled ? plan.description : "",
+      img: plan.isEnabled ? plan.img : "",
+    }));
 
-      if (data.data.success) {
-        toast.success("Plans saved successfully");
-        setIsConfigured(true);
-        setHasChanges(false);
-        setOriginalState({
-          plans: [...plans],
-          selectedChannels: [...selectedChannels]
-        });
-      } else {
-        throw new Error("Failed to save Plans");
-      }
-    } catch (error) {
-      console.error("Error saving plans:", error);
-      toast.error("Failed to save plans");
-    } finally {
-      setSaving(false);
+    const resultAction = await dispatch(saveBenefits({
+      salesChannels: selectedChannels,
+      configuredPlans,
+      companyId: company_id
+    }));
+
+    if (saveBenefits.fulfilled.match(resultAction)) {
+      toast.success("Plans saved successfully");
     }
   };
 
@@ -435,9 +330,9 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
                         checked={selectedChannels.includes(channel.id)}
                         onChange={() => handleChannelSelect(channel.id)}
                         className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${
-                          originalState.selectedChannels.includes(channel.id) ? 'opacity-50 cursor-not-allowed' : ''
+                          selectedChannels.includes(channel.id) ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
-                        disabled={originalState.selectedChannels.includes(channel.id)}
+                        disabled={selectedChannels.includes(channel.id)}
                       />
                       <div className="flex items-center space-x-3">
                         <div className="flex-shrink-0 h-8 w-8 rounded-full bg-white border border-gray-200 overflow-hidden">
@@ -495,8 +390,8 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
                   type="checkbox"
                   checked={plan.isEnabled}
                   onChange={() => handlePlansToggle(index)}
-                  className={originalState.plans[index]?.isEnabled ? 'opacity-50 cursor-not-allowed' : ''}
-                  disabled={originalState.plans[index]?.isEnabled}
+                  className={plan.isEnabled ? 'opacity-50 cursor-not-allowed' : ''}
+                  disabled={plan.isEnabled}
                 />
               </div>
               {plan?.isEnabled && (
@@ -505,13 +400,13 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
                     <textarea
                       placeholder="Enter description"
                       className={`w-full border p-2 rounded-md ${
-                        originalState.plans[index]?.isEnabled ? 'opacity-50 cursor-not-allowed' : ''
+                        plan.isEnabled ? 'opacity-50 cursor-not-allowed' : ''
                       } ${!plan.description?.trim() && plan.isEnabled ? 'border-red-500' : ''}`}
                       value={plan.description}
                       onChange={(e) =>
                         handlePlanChange(index, "description", e.target.value)
                       }
-                      disabled={originalState.plans[index]?.isEnabled}
+                      disabled={plan.isEnabled}
                     />
                     {!plan.description?.trim() && plan.isEnabled && (
                       <p className="text-red-500 text-sm mt-1">Description is required</p>
@@ -528,7 +423,7 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
                       <>
                         <label
                           className={`cursor-pointer w-full flex items-center justify-center px-4 py-2 bg-blue-100 text-blue-600 font-medium rounded-lg border border-blue-300 transition-colors duration-200 ${
-                            originalState.plans[index]?.isEnabled 
+                            plan.isEnabled 
                               ? 'opacity-50 cursor-not-allowed' 
                               : 'hover:bg-blue-200'
                           } ${!plan.img && plan.isEnabled ? 'border-red-500' : ''}`}
@@ -547,7 +442,7 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
                                 toast.success("Image uploaded successfully");
                               }
                             }}
-                            disabled={originalState.plans[index]?.isEnabled}
+                            disabled={plan.isEnabled}
                           />
                           📷 Upload Image
                         </label>

@@ -40,7 +40,7 @@ const Configure = () => {
 
   useEffect(() => {
     fetchConfig();
-  }, [company_id, activeTab]);
+  }, [company_id]);
 
   if (loading) {
     return (
