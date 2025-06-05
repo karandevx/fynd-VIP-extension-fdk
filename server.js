@@ -34,16 +34,24 @@ const processShipmentEvent = async (
   const shipment = body?.payload?.shipment;
   if (!shipment) return console.log("No shipment data found");
 
-  const hasVIPProduct = shipment?.bags?.some((bag) =>
+  const vipItem = shipment?.bags?.find((bag) =>
     bag?.item?.meta?.tags?.includes("vip_product")
   );
+
+  const vipItemId = vipItem?.item?.id;
 
   const VIPDays = getVIPDaysFromTags(shipment?.bags);
   const { firstName, lastName, email, phone, userId } =
     extractUserInfo(shipment);
   const userName = shipment?.delivery_address?.name ?? "";
 
-  if (hasVIPProduct) {
+  if (vipItemId) {
+    const client = new MongoClient(uri);
+    await client.connect();
+    const db = client.db(`${companyId}_VIP_Program`);
+    const vipConfig = await db.collection("vip_configs").findOne({ companyId });
+
+    const type = getPlanKey(vipConfig, applicationId, vipItemId);
     const userPayload = {
       userId,
       firstName,
@@ -57,10 +65,11 @@ const processShipmentEvent = async (
       VIPDays: VIPDays || 0,
       VIPExpiry: getVIPExpiryDate(shipment?.order_created, VIPDays),
       updatedAt: new Date(),
+      type
     };
 
     await upsertUser(userPayload, companyId);
-    await updateUserAttrDefinition(userId, companyId, applicationId);
+    await updateUserAttrDefinition(vipConfig,userId, companyId, applicationId, vipItemId);
   }
 
   const promoAndCodeIds = getPromoAndCodeIds(shipment?.bags);
@@ -113,15 +122,84 @@ const processShipmentEvent = async (
     await client.close();
   }
 };
+function getUserGroupByItemCodeAndAppId(data, applicationId, itemCode) {
+  console.log("itemCode", itemCode);
+  console.log("data", JSON.stringify(data));
+  // Step 1: Find the matching VIP product object
+  const matchedVip = data.vipProducts.find((productObj) => {
+    const key = Object.keys(productObj)[0];
+    return productObj[key].uid === itemCode;
+  });
 
-const updateUserAttrDefinition = async (userId, companyId, applicationId) => {
+  if (!matchedVip) {
+    console.log("No VIP product found with this item code.");
+    return null;
+  }
+console.log("matchedVip",JSON.stringify(matchedVip))
+  // Step 2: Extract the benefit key like "PRODUCT_EXCLUSIVITY"
+  const benefitKey =  Object.keys(matchedVip)[0];
+
+  // Step 3: Fetch user group by application ID and benefit name
+  const userGroups = data.userAttributeIds?.[applicationId];
+  console.log("------------------------------------")
+  console.log("userGroups",JSON.stringify(userGroups))
+
+  if (!userGroups || userGroups.length === 0) {
+    console.log("No user group found for this application ID.");
+    return null;
+  }
+ 
+  console.log("benefitKey",benefitKey)
+  // Step 4: Match user group by name containing the benefit key
+  const matchedGroup = userGroups.find((group) =>
+    group.name.includes(benefitKey)
+  );
+
+  if (!matchedGroup) {
+    console.log("No matching user group found for the benefit.");
+    return null;
+  }
+
+  return matchedGroup;
+}
+function getPlanKey(data, applicationId, itemCode) {
+  console.log("itemCode", itemCode);
+  console.log("data", JSON.stringify(data));
+  // Step 1: Find the matching VIP product object
+  const matchedVip = data.vipProducts.find((productObj) => {
+    const key = Object.keys(productObj)[0];
+    return productObj[key].uid === itemCode;
+  });
+
+  if (!matchedVip) {
+    console.log("No VIP product found with this item code.");
+    return null;
+  }
+console.log("matchedVip",JSON.stringify(matchedVip))
+  // Step 2: Extract the benefit key like "PRODUCT_EXCLUSIVITY"
+  const benefitKey =  Object.keys(matchedVip)[0];
+
+  // Step 3: Fetch user group by application ID and benefit name
+  const userGroups = data.userAttributeIds?.[applicationId];
+  console.log("------------------------------------")
+  console.log("userGroups",JSON.stringify(userGroups))
+
+  if (!userGroups || userGroups.length === 0) {
+    console.log("No user group found for this application ID.");
+    return null;
+  }
+ 
+  console.log("benefitKey",benefitKey)
+  return benefitKey;
+}
+const updateUserAttrDefinition = async (vipConfig,userId, companyId, applicationId,itemCode) => {
   try {
-    const client = new MongoClient(uri);
-    await client.connect();
-    const db = client.db(`${companyId}_VIP_Program`);
-    const vipConfig = await db.collection("vip_configs").findOne({ companyId });
+   
+    const result = getUserGroupByItemCodeAndAppId(vipConfig, applicationId, itemCode);
 
-    const userAttributeId = vipConfig?.userAttributeIds?.[applicationId];
+    console.log("result", result);
+
+    const userAttributeId = result?.attributeId;
     if (!userAttributeId) {
       console.log(
         `No user attribute definition found for app ${applicationId}`
@@ -143,7 +221,7 @@ const updateUserAttrDefinition = async (userId, companyId, applicationId) => {
     };
 
     const url = `https://api.fynd.com/service/platform/user/v1.0/company/${companyId}/application/${applicationId}/user_attribute/definition/${userAttributeId}/user/${userId}`;
-    const response = await axiosClient.put(url, payload, config);
+    const response = await axios.put(url, payload, config);
     console.log("Attribute update response:", response?.data);
   } catch (error) {
     console.error("Error updating user attribute:", error?.message || error);
@@ -547,7 +625,7 @@ salesChannelRouter.post(
       for (const appId of existingAppIds) {
         existingPlansMap[appId] = new Set(
           (userAttributesMap[appId] || []).map((attr) =>
-            attr.name.toLowerCase().replace(/ /g, "_")
+            attr.name
           )
         );
       }
@@ -734,6 +812,7 @@ promotionRouter.post("/create-campaign", async function view(req, res, next) {
       if (!groupObj?.groupId) {
         continue; // Skip if no group found for this appId
       } else {
+        if(type!=="PRODUCT_EXCLUSIVITY"){
         const prmotionPayload = {
           buy_rules: {
             "rule#1": {
@@ -841,23 +920,23 @@ promotionRouter.post("/create-campaign", async function view(req, res, next) {
         }
       }
     }
+    }
     const campaignId = getUnique6Digit();
 
     const payload = {
       campaignId: campaignId,
       companyId: companyId,
       applicationIds: appIds,
-      promotions: promotions,
+      promotions: promotions || {},
       products: products,
-      isFreeShipping: isFreeShipping,
-      discount: discount,
+      discount: discount||{},
       startDate: startDate,
       endDate: endDate,
-      preLaunchDays: preLaunchDays,
+      preLaunchDays: preLaunchDays ||0,
       name: name,
-      offerText: offerText,
-      offerLabel: offerLabel,
-      description: description,
+      offerText: offerText ||"",
+      offerLabel: offerLabel||"",
+      description: description||"",
       type: groupName,
       createdAt: new Date(),
     };

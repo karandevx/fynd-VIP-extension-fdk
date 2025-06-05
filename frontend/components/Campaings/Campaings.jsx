@@ -219,11 +219,11 @@ const Campaigns = () => {
       return 0;
     });
 
-  const handleProductSelect = (productId) => {
+  const handleProductSelect = (product) => {
     setSelectedProducts(prev => 
-      prev.includes(productId)
-        ? prev?.filter(id => id !== productId)
-        : [...prev, productId]
+      prev.some(p => p.uid === product.uid)
+        ? prev.filter(p => p.uid !== product.uid)
+        : [...prev, { uid: product.uid, item_code: product.item_code }]
     );
   };
 
@@ -235,20 +235,23 @@ const Campaigns = () => {
     );
   };
 
-  const handleSelectAllProducts = (productUidsToToggle) => {
+  const handleSelectAllProducts = (productsToToggle) => {
     setSelectedProducts(prev => {
-      const allSelectedInList = productUidsToToggle.every(uid => prev.includes(uid));
+      const allSelectedInList = productsToToggle.every(product => 
+        prev.some(p => p.uid === product.uid)
+      );
       const newSelected = new Set(prev);
 
       if (allSelectedInList) {
         // Deselect all in the current list
-        productUidsToToggle.forEach(uid => newSelected.delete(uid));
+        return prev.filter(p => !productsToToggle.some(product => product.uid === p.uid));
       } else {
         // Select all in the current list
-        productUidsToToggle.forEach(uid => newSelected.add(uid));
+        return [...prev, ...productsToToggle.map(product => ({ 
+          uid: product.uid, 
+          item_code: product.item_code 
+        }))];
       }
-
-      return Array.from(newSelected);
     });
   };
 
@@ -269,11 +272,11 @@ const Campaigns = () => {
     });
   };
 
-  const handleIndividualProductSelect = (productId) => {
+  const handleIndividualProductSelect = (product) => {
     setSelectedProducts(prev => 
-      prev.includes(productId)
-        ? prev?.filter(id => id !== productId)
-        : [...prev, productId]
+      prev.some(p => p.uid === product.uid)
+        ? prev.filter(p => p.uid !== product.uid)
+        : [...prev, { uid: product.uid, item_code: product.item_code }]
     );
   };
 
@@ -630,7 +633,7 @@ const Campaigns = () => {
         onClose={() => setShowProductModal(false)}
         selectedProducts={selectedProducts}
         onProductSelect={handleIndividualProductSelect}
-        onSelectAllProducts={() => handleSelectAllProducts(filteredAndSortedProducts.map(p => p.uid))}
+        onSelectAllProducts={() => handleSelectAllProducts(filteredAndSortedProducts)}
         products={filteredAndSortedProducts}
         isLoading={isLoading}
         productSearchTerm={productSearchTerm}

@@ -41,6 +41,9 @@ const CampaignCreatePage = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [campaignId, setCampaignId] = useState(null);
 
+  // Add campaign type state
+  const [campaignType, setCampaignType] = useState("");
+
   // Update handlers to use selectedSaleschannels
   const handleIndividualSalesChannelSelect = (channelId) => {
     setSelectedSaleschannels((prev) =>
@@ -89,7 +92,6 @@ const CampaignCreatePage = ({
       offerLabel,
       preLaunchDays,
       discount,
-      isFreeShipping,
     } = data;
 
     // Date validation
@@ -114,7 +116,7 @@ const CampaignCreatePage = ({
     // If all validations pass
     if (currentStep === 1) {
       const payload = {
-        type: "Product Exclusivity And Custom Promotions Users",
+        type: campaignType,
         name: name,
         description: description || "", // Ensure description is included
         offerText: offerText || "",
@@ -122,11 +124,10 @@ const CampaignCreatePage = ({
         companyId: company_id, // Use company_id from useParams
         applicationIds: selectedSaleschannels, // Use selectedSaleschannels for applicationIds
         products: selectedProducts, // Use selectedProducts for products
-        isFreeShipping: isFreeShipping, // Use isFreeShipping
         discount: {
           // Use discount object
-          type: discount.type,
-          value: discount.value,
+          type: discount?.type || "",
+          value: discount?.value || "",
         },
         startDate: new Date(startDate).toISOString(), // Format date to ISO string
         endDate: new Date(endDate).toISOString(), // Format date to ISO string
@@ -255,52 +256,180 @@ const CampaignCreatePage = ({
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label
-                        htmlFor="offerText"
-                        className="block text-sm font-medium text-gray-700 mb-1"
-                      >
-                        Offer Text
-                      </label>
-                      <input
-                        type="text"
-                        id="offerText"
-                        {...register("offerText", {
-                          required: "Offertext is required",
-                        })}
-                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                        placeholder="e.g., 20% off"
-                      />
-                      {errors.offerText && (
-                        <p className="mt-2 !text-sm text-red-600">
-                          {errors.offerText.message}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="offerLabel"
-                        className="block text-sm font-medium text-gray-700 mb-1"
-                      >
-                        Offer Label
-                      </label>
-                      <input
-                        type="text"
-                        id="offerLabel"
-                        {...register("offerLabel", {
-                          required: "OfferLabel is required",
-                        })}
-                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                        placeholder="e.g., Limited Time"
-                      />
-                      {errors.offerLabel && (
-                        <p className="mt-2 !text-sm text-red-600">
-                          {errors.offerLabel.message}
-                        </p>
-                      )}
-                    </div>
+                  <div>
+                    <label
+                      htmlFor="campaignType"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                      Campaign Type
+                    </label>
+                    <select
+                      id="campaignType"
+                      value={campaignType}
+                      onChange={(e) => setCampaignType(e.target.value)}
+                      className={`block w-full rounded-md border ${
+                        errors.campaignType ? 'border-red-500' : 'border-gray-300'
+                      } px-3 py-2 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                      {...register("campaignType", {
+                        required: "Campaign type is required",
+                        onChange: (e) => setCampaignType(e.target.value)
+                      })}
+                    >
+                      <option value="">Select Campaign Type</option>
+                      <option value="PRODUCT_EXCLUSIVITY">Product Exclusivity</option>
+                      <option value="CUSTOM_PROMOTIONS">Custom Promotions</option>
+                      <option value="PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS">Product Exclusivity & Custom Promotions</option>
+                    </select>
+                    {errors.campaignType && (
+                      <p className="mt-2 !text-sm text-red-600">
+                        {errors.campaignType.message}
+                      </p>
+                    )}
                   </div>
+
+                  {(campaignType === "CUSTOM_PROMOTIONS" || campaignType === "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS") && (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label
+                            htmlFor="offerText"
+                            className="block text-sm font-medium text-gray-700 mb-1"
+                          >
+                            Offer Text
+                          </label>
+                          <input
+                            type="text"
+                            id="offerText"
+                            {...register("offerText", {
+                              required: campaignType === "CUSTOM_PROMOTIONS" || campaignType === "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS" ? "Offer text is required" : false,
+                            })}
+                            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            placeholder="e.g., 20% off"
+                          />
+                          {errors.offerText && (
+                            <p className="mt-2 !text-sm text-red-600">
+                              {errors.offerText.message}
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="offerLabel"
+                            className="block text-sm font-medium text-gray-700 mb-1"
+                          >
+                            Offer Label
+                          </label>
+                          <input
+                            type="text"
+                            id="offerLabel"
+                            {...register("offerLabel", {
+                              required: campaignType === "CUSTOM_PROMOTIONS" || campaignType === "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS" ? "Offer label is required" : false,
+                            })}
+                            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            placeholder="e.g., Limited Time"
+                          />
+                          {errors.offerLabel && (
+                            <p className="mt-2 !text-sm text-red-600">
+                              {errors.offerLabel.message}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label
+                            htmlFor="discountType"
+                            className="block text-sm font-medium text-gray-700 mb-1"
+                          >
+                            Discount Type
+                          </label>
+                          <select
+                            id="discountType"
+                            {...register("discount.type", {
+                              required: campaignType === "CUSTOM_PROMOTIONS" || campaignType === "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS" ? "Discount type is required" : false,
+                            })}
+                            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                          >
+                            <option value="">Select Discount Type</option>
+                            <option value="amount">Amount</option>
+                            <option value="percentage">Percentage</option>
+                          </select>
+                          {errors.discount?.type && (
+                            <p className="mt-2 !text-sm text-red-600">
+                              {errors.discount.type.message}
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="discountValue"
+                            className="block text-sm font-medium text-gray-700 mb-1"
+                          >
+                            Discount Value
+                          </label>
+                          <input
+                            type="number"
+                            id="discountValue"
+                            {...register("discount.value", {
+                              required: campaignType === "CUSTOM_PROMOTIONS" || campaignType === "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS" ? "Discount value is required" : false,
+                              min: {
+                                value: 0,
+                                message: "Discount value must be positive",
+                              },
+                              validate: (value) => {
+                                const type = watch("discount.type");
+                                if (
+                                  type === "percentage" &&
+                                  (value < 0 || value > 100)
+                                ) {
+                                  return "Percentage discount must be between 0 and 100";
+                                }
+                                return true;
+                              },
+                            })}
+                            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            step="any"
+                          />
+                          {errors.discount?.value && (
+                            <p className="mt-2 !text-sm text-red-600">
+                              {errors.discount.value.message}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {(campaignType === "PRODUCT_EXCLUSIVITY" || campaignType === "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS") && (
+                    <div>
+                      <label
+                        htmlFor="preLaunchDays"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Pre-launch Days
+                      </label>
+                      <input
+                        type="number"
+                        id="preLaunchDays"
+                        {...register("preLaunchDays", {
+                          required: campaignType === "PRODUCT_EXCLUSIVITY" || campaignType === "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS" ? "Pre-launch days is required" : false,
+                          valueAsNumber: true,
+                          min: {
+                            value: 0,
+                            message: "Pre-launch days must be positive",
+                          },
+                        })}
+                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        defaultValue={0}
+                      />
+                      {errors.preLaunchDays && (
+                        <p className="mt-2 !text-sm text-red-600">
+                          {errors.preLaunchDays.message}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
@@ -345,8 +474,16 @@ const CampaignCreatePage = ({
                       <input
                         type="date"
                         id="endDate"
+                        min={watch("startDate") || new Date().toISOString().split("T")[0]}
                         {...register("endDate", {
                           required: "End date is required",
+                          validate: (value) => {
+                            const startDate = watch("startDate");
+                            if (startDate && new Date(value) <= new Date(startDate)) {
+                              return "End date must be after start date";
+                            }
+                            return true;
+                          },
                         })}
                         className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       />
@@ -361,109 +498,6 @@ const CampaignCreatePage = ({
                         {dateError}
                       </p>
                     )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label
-                        htmlFor="discountType"
-                        className="block text-sm font-medium text-gray-700 mb-1"
-                      >
-                        Discount Type
-                      </label>
-                      <select
-                        id="discountType"
-                        {...register("discount.type", {
-                          required: "Discount type is required",
-                        })}
-                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      >
-                        <option value="amount">Amount</option>
-                        <option value="percentage">Percentage</option>
-                      </select>
-                      {errors.discount?.type && (
-                        <p className="mt-2 !text-sm text-red-600">
-                          {errors.discount.type.message}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="discountValue"
-                        className="block text-sm font-medium text-gray-700 mb-1"
-                      >
-                        Discount Value
-                      </label>
-                      <input
-                        type="number"
-                        id="discountValue"
-                        {...register("discount.value", {
-                          required: "Discount value is required",
-                          min: {
-                            value: 0,
-                            message: "Discount value must be positive",
-                          },
-                          validate: (value) => {
-                            const type = watch("discount.type");
-                            if (
-                              type === "percentage" &&
-                              (value < 0 || value > 100)
-                            ) {
-                              return "Percentage discount must be between 0 and 100";
-                            }
-                            return true;
-                          },
-                        })}
-                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                        step="any"
-                      />
-                      {errors.discount?.value && (
-                        <p className="mt-2 !text-sm text-red-600">
-                          {errors.discount.value.message}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                    <div>
-                      <label className="inline-flex items-center">
-                        <input
-                          type="checkbox"
-                          {...register("isFreeShipping")}
-                          className="form-checkbox h-4 w-4 text-blue-600 transition duration-150 ease-in-out rounded border-gray-300 focus:ring-blue-500"
-                        />
-                        <span className="ml-2 text-sm text-gray-700">
-                          Offer Free Shipping
-                        </span>
-                      </label>
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="preLaunchDays"
-                        className="block text-sm font-medium text-gray-700 mb-1"
-                      >
-                        Pre-launch Days
-                      </label>
-                      <input
-                        type="number"
-                        id="preLaunchDays"
-                        {...register("preLaunchDays", {
-                          valueAsNumber: true,
-                          min: {
-                            value: 0,
-                            message: "Pre-launch days must be positive",
-                          },
-                        })}
-                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                        defaultValue={0}
-                      />
-                      {errors.preLaunchDays && (
-                        <p className="mt-2 !text-sm text-red-600">
-                          {errors.preLaunchDays.message}
-                        </p>
-                      )}
-                    </div>
                   </div>
 
                   <div>
