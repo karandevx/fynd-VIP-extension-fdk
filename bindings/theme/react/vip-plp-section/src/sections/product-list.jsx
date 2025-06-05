@@ -3,20 +3,26 @@ import { useGlobalStore, useFPI } from "fdk-core/utils";
 // import { Helmet } from "react-helmet-async";
 
 export function Component({ props }) {
- console.log(": VIP PLP Protection Component 1");
+ console.log(": VIP PLP Protection Component 2");
  const fpi = useFPI();
  const [campaignData, setCampaignData] = useState(null);
  const [userValidation, setUserValidation] = useState(null);
  const [loading, setLoading] = useState(true);
  const [error, setError] = useState(null);
  const [observer, setObserver] = useState(null);
+ 
+ const application_id = fpi.getters.THEME(state)?.application_id;
+ const company_id = fpi.getters.THEME(state)?.company_id;
+
+ const COMPANY_ID = company_id || "10253";
+ const APPLICATION_ID = application_id || "6828309ae4f8062f0c847089";
 
  const pageDetails = useGlobalStore(fpi.getters.PAGE);
  const productsListData = useGlobalStore(fpi?.getters?.PRODUCTS);
 
  // Static IDs as requested
- const COMPANY_ID = "10253";
- const APPLICATION_ID = "6828309ae4f8062f0c847089";
+//  const COMPANY_ID = "10253";
+//  const APPLICATION_ID = "6828309ae4f8062f0c847089";
  const USER_ID = "683817d98fbf32007a149c91";
 
  console.log("pageDetails", pageDetails);
@@ -183,6 +189,7 @@ export function Component({ props }) {
    }
  
    .vip-product-disabled {
+    position: relative !important;
      pointer-events: none !important;
      opacity: 0.8 !important;
      filter: grayscale(0.2) !important;
@@ -213,6 +220,8 @@ export function Component({ props }) {
  const processProductListing = (campaignProductCodes, isVipUser) => {
    console.log("Processing product listing...", { campaignProductCodes, isVipUser });
   
+   // here we will make a specific id. and use get element by id and that id value will be coming from props.
+
    const container = document.querySelector('.product-listing__productContainer___oyoni');
    if (!container) {
      console.log("Product listing container not found");
@@ -245,6 +254,14 @@ export function Component({ props }) {
         
          // Add disabled class to main link
          link.classList.add('vip-product-disabled');
+
+         const overlay = document.createElement('div');
+         overlay.className = 'vip-overlay';
+         overlay.innerHTML = `
+         <div class="vip-badge">VIP EXCLUSIVE</div>
+         <div class="vip-message">Upgrade to VIP to unlock this product</div>
+       `;
+        link.appendChild(overlay);
         
          // Disable navigation
          link.addEventListener('click', (e) => {
@@ -253,37 +270,7 @@ export function Component({ props }) {
            alert('This product is exclusive to VIP members only!');
          });
         
-         // Disable add to cart button
-         const addToCartBtn = link.querySelector('.product-card__addToCart___KUnfH, button[aria-label*="cart"], button:contains("ADD TO CART")');
-         if (addToCartBtn) {
-           addToCartBtn.disabled = true;
-           addToCartBtn.classList.add('vip-cart-disabled');
-           addToCartBtn.innerHTML = '<span>VIP ONLY</span>';
-          
-           addToCartBtn.addEventListener('click', (e) => {
-             e.preventDefault();
-             e.stopPropagation();
-             alert('This product is exclusive to VIP members only!');
-           });
-         }
-        
-         // Add VIP overlay/badge
-         const productCard = link.querySelector('.product-card__productCard___VMIjd');
-         if (productCard && !productCard.querySelector('.vip-overlay')) {
-           // Ensure product card has relative positioning
-           const computedStyle = window.getComputedStyle(productCard);
-           if (computedStyle.position === 'static') {
-             productCard.style.position = 'relative';
-           }
-          
-           const overlay = document.createElement('div');
-           overlay.className = 'vip-overlay';
-           overlay.innerHTML = `
-           <div class="vip-badge">VIP EXCLUSIVE</div>
-           <div class="vip-message">Upgrade to VIP to unlock this product</div>
-         `;
-           productCard.appendChild(overlay);
-         }
+      
        } else {
          // Remove any existing VIP restrictions if user becomes VIP
          link.classList.remove('vip-product-disabled');
