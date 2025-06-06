@@ -1,17 +1,17 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+import React from "react";
+import { NavLink } from "react-router-dom";
 
 const Sidebar = () => {
   const menuItems = [
     {
-      title: 'Main Menu',
+      title: "Main Menu",
       items: [
-        { label: 'Dashboard', path: 'dashboard', icon: '📊' },
-        { label: 'Customers', path: 'customers', icon: '👥' },
-        { label: 'Campaigns', path: 'campaigns', icon: '🎯' },
-        { label: 'Configure', path: 'configure', icon: '⚙️' }
-      ]
-    }
+        { label: "Configure", path: "configure", icon: "⚙️" },
+        { label: "VIPs", path: "customers", icon: "👥" },
+        { label: "Campaigns", path: "campaigns", icon: "🎯" },
+        { label: "AI Analyst", path: "dashboard", icon: "📊" },
+      ],
+    },
   ];
 
   return (
@@ -30,8 +30,8 @@ const Sidebar = () => {
                     className={({ isActive }) =>
                       `flex items-center space-x-3 px-4 py-3 ${
                         isActive
-                          ? 'bg-blue-50 text-blue-600'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                          ? "bg-blue-50 text-blue-600"
+                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                       } transition-colors`
                     }
                   >
