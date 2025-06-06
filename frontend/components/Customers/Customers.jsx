@@ -2,60 +2,49 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useParams } from "react-router-dom";
 import { toast } from "react-toastify";
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchSalesChannels } from '../../src/features/salesChannels/salesChannelsSlice';
+import { 
+  fetchCustomers, 
+  setSearchTerm, 
+  setVipType, 
+  setSortField, 
+  setSortDirection 
+} from '../../src/features/customers/customersSlice';
 
 export const Customers = () => {
   const { company_id } = useParams();
-  const [pageLoading, setPageLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [sortField, setSortField] = useState("firstName");
-  const [sortDirection, setSortDirection] = useState("asc");
-  const [customers, setCustomers] = useState([]);
-  const [filteredCustomers, setFilteredCustomers] = useState([]);
+  const dispatch = useDispatch();
+  const [selectedChannel, setSelectedChannel] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const [salesChannels, setSalesChannels] = useState([]);
-  const [selectedChannel, setSelectedChannel] = useState('all');
 
-  const fetchCustomers = async () => {
-    setPageLoading(true);
-    try {
-      const response = await axios.get(`${import.meta.env.VITE_FETCH_BACKEND_URL}?module=users&companyId=${company_id}&queryType=scan`, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      if (response.data.success) {
-        setCustomers(response.data.data);
-        setFilteredCustomers(response.data.data);
-      } 
-    } catch (error) {
-      console.error('Error fetching customers:', error);
-    } finally {
-      setPageLoading(false);
-    }
-  };
+  const { channels: salesChannels, loading: channelsLoading } = useSelector((state) => state.salesChannels);
+  const { 
+    customers, 
+    loading: customersLoading, 
+    error: customersError,
+    filters: { searchTerm, vipType, sortField, sortDirection }
+  } = useSelector((state) => state.customers);
 
+  // Fetch customers on mount
   useEffect(() => {
-    fetchCustomers();
-  }, [company_id]);
+    dispatch(fetchCustomers(company_id));
+  }, [company_id, dispatch]);
 
   // Fetch sales channels on mount
   useEffect(() => {
-    const fetchSalesChannels = async () => {
-      try {
-        const response = await axios.get(
-          `https://fetch-db-data-d9ca324b.serverless.boltic.app?module=salesChannels&companyId=${company_id}`,
-          { headers: { 'Content-Type': 'application/json' } }
-        );
-        if (response.data.success) {
-          setSalesChannels(response.data.data);
-        }
-      } catch (err) {
-        // Optionally handle error
-      }
-    };
-    fetchSalesChannels();
-  }, [company_id]);
+    if (salesChannels.length === 0) {
+      dispatch(fetchSalesChannels(company_id));
+    }
+  }, [company_id, dispatch, salesChannels.length]);
+
+  // Handle error
+  useEffect(() => {
+    if (customersError) {
+      toast.error(customersError);
+    }
+  }, [customersError]);
 
   // Map applicationId to sales channel name
   const getSalesChannelName = (id) => {
@@ -65,33 +54,35 @@ export const Customers = () => {
 
   const handleSort = (field) => {
     if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+      dispatch(setSortDirection(sortDirection === "asc" ? "desc" : "asc"));
     } else {
-      setSortField(field);
-      setSortDirection("asc");
+      dispatch(setSortField(field));
+      dispatch(setSortDirection("asc"));
     }
   };
 
-  useEffect(() => {
-    let result = [...customers];
-
-    // Filter by search term
-    if (searchTerm) {
-      result = result.filter(customer => 
+  // Filter and sort customers
+  const filteredCustomers = customers
+    .filter(customer => {
+      const matchesSearch = searchTerm ? (
         customer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         customer.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         customer.phone?.includes(searchTerm)
-      );
-    }
+      ) : true;
 
-    // Filter by sales channel
-    if (selectedChannel !== 'all') {
-      result = result.filter(customer => customer.applicationId === selectedChannel);
-    }
+      const matchesVipType = vipType === 'all' ? true :
+        vipType === 'CUSTOM_PROMOTIONS' ? customer.CUSTOM_PROMOTIONS :
+        vipType === 'PRODUCT_EXCLUSIVITY' ? customer.PRODUCT_EXCLUSIVITY :
+        vipType === 'PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS' ? 
+          (customer.PRODUCT_EXCLUSIVITY && customer.CUSTOM_PROMOTIONS) : true;
 
-    // Sorting
-    result.sort((a, b) => {
+      const matchesChannel = selectedChannel === 'all' ? true :
+        customer.applicationId === selectedChannel;
+
+      return matchesSearch && matchesVipType && matchesChannel;
+    })
+    .sort((a, b) => {
       let aValue, bValue;
       if (sortField === 'VIPExpiry') {
         aValue = a.VIPExpiry ? new Date(a.VIPExpiry) : new Date(0);
@@ -103,16 +94,10 @@ export const Customers = () => {
         aValue = a[sortField] || '';
         bValue = b[sortField] || '';
       }
-      if (sortDirection === "asc") {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
+      return sortDirection === "asc" ? 
+        (aValue > bValue ? 1 : -1) : 
+        (aValue < bValue ? 1 : -1);
     });
-
-    setFilteredCustomers(result);
-    setCurrentPage(1);
-  }, [searchTerm, sortField, sortDirection, customers, selectedChannel]);
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
@@ -243,7 +228,7 @@ export const Customers = () => {
             </span>
           </h1>
           
-          {pageLoading ? (
+          {customersLoading ? (
             <div className="bg-white p-2 rounded-md shadow flex items-center">
               <svg className="animate-spin h-5 w-5 text-indigo-600 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -269,10 +254,24 @@ export const Customers = () => {
                   placeholder="Search customers..."
                   className="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-10 pr-4 py-3 border-gray-300 rounded-md text-sm"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => dispatch(setSearchTerm(e.target.value))}
                 />
               </div>
-              {/* Sales Channel Filter Dropdown */}
+              {/* VIP Type Filter */}
+              <div>
+                <select
+                  className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                  value={vipType}
+                  onChange={(e) => dispatch(setVipType(e.target.value))}
+                >
+                  <option value="all">All VIP Types</option>
+                  <option value="CUSTOM_PROMOTIONS">Custom Promotions</option>
+                  <option value="PRODUCT_EXCLUSIVITY">Product Exclusivity</option>
+                  <option value="PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS">Product Exclusivity and Custom Promotions</option>
+
+                </select>
+              </div>
+              {/* Sales Channel Filter */}
               <div>
                 <select
                   className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
@@ -326,7 +325,7 @@ export const Customers = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {pageLoading ? (
+                {customersLoading ? (
                   <tr>
                     <td colSpan="6" className="px-6 py-10 text-center text-gray-500">
                       <div className="flex justify-center items-center">
@@ -378,7 +377,7 @@ export const Customers = () => {
                               <span>{channel.name}</span>
                             </>
                           ) : (
-                            customer.applicationId || 'N/A'
+                            <span className="text-gray-500">N/A</span>
                           );
                         })()}
                       </td>

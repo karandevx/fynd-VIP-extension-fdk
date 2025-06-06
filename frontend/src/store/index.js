@@ -3,6 +3,7 @@ import vipProductsReducer from '../features/vipProducts/vipProductsSlice';
 import salesChannelsReducer from '../features/salesChannels/salesChannelsSlice';
 import benefitsReducer from '../features/benefits/benefitsSlice';
 import campaignsReducer from '../features/campaigns/campaignsSlice';
+import customersReducer from '../features/customers/customersSlice';
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ export const store = configureStore({
     salesChannels: salesChannelsReducer,
     benefits: benefitsReducer,
     campaigns: campaignsReducer,
+    customers: customersReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
