@@ -35,6 +35,7 @@ const Campaigns = () => {
   const [sortField, setSortField] = useState('name');
   const [sortDirection, setSortDirection] = useState('asc');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterType, setFilterType] = useState('all');
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [selectedSaleschannels, setSelectedSaleschannels] = useState([]);
@@ -165,12 +166,12 @@ const Campaigns = () => {
     }
   };
 
-  const filteredAndSortedCampaigns = campaigns
+  const filteredAndSortedCampaigns = fetchedCampaigns
     ?.filter(campaign => {
-      const matchesSearch = campaign?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          campaign?.description.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesFilter = filterStatus === 'all' || campaign?.status === filterStatus;
-      return matchesSearch && matchesFilter;
+      const matchesSearch = campaign?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          campaign?.description?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = filterType === 'all' ? true : campaign?.type === filterType;
+      return matchesSearch && matchesType;
     })
     .sort((a, b) => {
       const aValue = a[sortField];
@@ -381,37 +382,15 @@ const Campaigns = () => {
                 </div>
                 <div className="flex gap-4">
                   <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
                     className="px-3 py-2 border cursor-pointer rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option className='hover:cursor-pointer' value="all">All Status</option>
-                    <option className='hover:cursor-pointer' value="draft">Draft</option>
-                    <option className='hover:cursor-pointer' value="active">Active</option>
-                    <option className='hover:cursor-pointer' value="completed">Completed</option>
-                    <option className='hover:cursor-pointer' value="paused">Paused</option>
+                    <option value="all">All Types</option>
+                    <option value="PRODUCT_EXCLUSIVITY">Product Exclusivity</option>
+                    <option value="CUSTOM_PROMOTIONS">Custom Promotions</option>
+                    <option value="PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS">Product Exclusivity & Custom Promotions</option>
                   </select>
-                  <div className="flex items-center space-x-2 text-sm text-gray-500">
-                    <span>Sort by:</span>
-                    <button
-                      onClick={() => handleSort('name')}
-                      className={`hover:text-blue-600 hover:cursor-pointer ${sortField === 'name' ? 'text-blue-600' : ''}`}
-                    >
-                      Name {sortField === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </button>
-                    <button
-                      onClick={() => handleSort('startDate')}
-                      className={`hover:text-blue-600 hover:cursor-pointer ${sortField === 'startDate' ? 'text-blue-600' : ''}`}
-                    >
-                      Start Date {sortField === 'startDate' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </button>
-                    <button
-                      onClick={() => handleSort('status')}
-                      className={`hover:text-blue-600 hover:cursor-pointer ${sortField === 'status' ? 'text-blue-600' : ''}`}
-                    >
-                      Status {sortField === 'status' && (sortDirection === 'asc' ? '↑' : '↓')}
-                    </button>
-                  </div>
                   <button
                     onClick={handleRefresh}
                     className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
@@ -442,42 +421,24 @@ const Campaigns = () => {
                   <tr>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort('name')}
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
                       Name
-                      {sortField === 'name' && (
-                        <span className="ml-1">
-                          {sortDirection === 'asc' ? '↑' : '↓'}
-                        </span>
-                      )}
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Description
+                      Type
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort('startDate')}
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
                       Date Range
-                      {sortField === 'startDate' && (
-                        <span className="ml-1">
-                          {sortDirection === 'asc' ? '↑' : '↓'}
-                        </span>
-                      )}
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => handleSort('status')}
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
                       Status
-                      {sortField === 'status' && (
-                        <span className="ml-1">
-                          {sortDirection === 'asc' ? '↑' : '↓'}
-                        </span>
-                      )}
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
@@ -495,13 +456,18 @@ const Campaigns = () => {
                       </td>
                     </tr>
                   ) : (
-                    fetchedCampaigns.map((campaign) => (
+                    filteredAndSortedCampaigns.map((campaign) => (
                       <tr key={campaign?._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{campaign?.name||"" }</div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="text-sm text-gray-500">{campaign?.description || "N/A"}</div>
+                          <div className="text-sm text-gray-500">
+                            {campaign?.type === 'PRODUCT_EXCLUSIVITY' ? 'Product Exclusivity' :
+                             campaign?.type === 'CUSTOM_PROMOTIONS' ? 'Custom Promotions' :
+                             campaign?.type === 'PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS' ? 'Product Exclusivity & Custom Promotions' :
+                             'N/A'}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-500">
@@ -558,7 +524,7 @@ const Campaigns = () => {
                       </tr>
                     ))
                   )}
-                  {!isCampaignsLoading && fetchedCampaigns.length === 0 && (
+                  {!isCampaignsLoading && filteredAndSortedCampaigns.length === 0 && (
                     <tr>
                       <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
                         No campaigns found

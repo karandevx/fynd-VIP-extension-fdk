@@ -304,8 +304,25 @@ const EmailTemplateForm = ({
         <div className="border border-gray-200 rounded-md p-4 bg-gray-50 shadow-inner overflow-x-auto min-h-[200px]">
           {watch("emailTemplate.content") ? (
             <div
-              dangerouslySetInnerHTML={{ __html: extractBody(watch("emailTemplate.content")) }}
+              dangerouslySetInnerHTML={{ __html: watch("emailTemplate.content") }}
               className="prose max-w-none text-gray-800"
+              style={{
+                '--tw-prose-body': 'var(--tw-prose-gray-800)',
+                '--tw-prose-headings': 'var(--tw-prose-gray-900)',
+                '--tw-prose-links': 'var(--tw-prose-blue-600)',
+                '--tw-prose-bold': 'var(--tw-prose-gray-900)',
+                '--tw-prose-counters': 'var(--tw-prose-gray-900)',
+                '--tw-prose-bullets': 'var(--tw-prose-gray-900)',
+                '--tw-prose-hr': 'var(--tw-prose-gray-200)',
+                '--tw-prose-quotes': 'var(--tw-prose-gray-900)',
+                '--tw-prose-quote-borders': 'var(--tw-prose-gray-200)',
+                '--tw-prose-captions': 'var(--tw-prose-gray-700)',
+                '--tw-prose-code': 'var(--tw-prose-gray-900)',
+                '--tw-prose-pre-code': 'var(--tw-prose-gray-200)',
+                '--tw-prose-pre-bg': 'var(--tw-prose-gray-800)',
+                '--tw-prose-th-borders': 'var(--tw-prose-gray-300)',
+                '--tw-prose-td-borders': 'var(--tw-prose-gray-200)',
+              }}
             ></div>
           ) : (
             <p className="text-gray-500">
