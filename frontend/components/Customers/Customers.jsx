@@ -24,13 +24,17 @@ export const Customers = () => {
     customers, 
     loading: customersLoading, 
     error: customersError,
-    filters: { searchTerm, vipType, sortField, sortDirection }
+    filters: { searchTerm, vipType, sortField, sortDirection },
+    lastFetched
   } = useSelector((state) => state.customers);
 
-  // Fetch customers on mount
+  // Fetch customers only if data is not available or stale
   useEffect(() => {
-    dispatch(fetchCustomers(company_id));
-  }, [company_id, dispatch]);
+    const shouldFetch = !lastFetched || Date.now() - new Date(lastFetched).getTime() > 5 * 60 * 1000; // 5 minutes cache
+    if (shouldFetch) {
+      dispatch(fetchCustomers(company_id));
+    }
+  }, [company_id, lastFetched, dispatch]);
 
   // Fetch sales channels on mount
   useEffect(() => {
@@ -62,8 +66,10 @@ export const Customers = () => {
   };
 
   // Filter and sort customers
-  const filteredCustomers = customers
+  const filteredCustomers = (customers || [])
     .filter(customer => {
+      if (!customer) return false;
+
       const matchesSearch = searchTerm ? (
         customer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         customer.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -90,6 +96,9 @@ export const Customers = () => {
       } else if (sortField === 'VIPDays') {
         aValue = parseInt(a.VIPDays) || 0;
         bValue = parseInt(b.VIPDays) || 0;
+      } else if (sortField === 'firstName') {
+        aValue = `${a.firstName || ''} ${a.lastName || ''}`.toLowerCase();
+        bValue = `${b.firstName || ''} ${b.lastName || ''}`.toLowerCase();
       } else {
         aValue = a[sortField] || '';
         bValue = b[sortField] || '';
@@ -107,6 +116,10 @@ export const Customers = () => {
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
+  };
+
+  const handleRefresh = () => {
+    dispatch(fetchCustomers(company_id));
   };
 
   const renderPagination = () => {
@@ -268,7 +281,6 @@ export const Customers = () => {
                   <option value="CUSTOM_PROMOTIONS">Custom Promotions</option>
                   <option value="PRODUCT_EXCLUSIVITY">Product Exclusivity</option>
                   <option value="PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS">Product Exclusivity and Custom Promotions</option>
-
                 </select>
               </div>
               {/* Sales Channel Filter */}
@@ -284,6 +296,28 @@ export const Customers = () => {
                   ))}
                 </select>
               </div>
+              {/* Refresh Button */}
+              <button
+                onClick={handleRefresh}
+                className="p-2 text-gray-600 hover:text-indigo-600 transition-colors"
+                title="Refresh customers"
+                disabled={customersLoading}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`h-5 w-5 ${customersLoading ? 'animate-spin' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+              </button>
             </div>
           </div>
           

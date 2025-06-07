@@ -4,6 +4,8 @@ import salesChannelsReducer from '../features/salesChannels/salesChannelsSlice';
 import benefitsReducer from '../features/benefits/benefitsSlice';
 import campaignsReducer from '../features/campaigns/campaignsSlice';
 import customersReducer from '../features/customers/customersSlice';
+import productsReducer from '../features/products/productsSlice';
+import configReducer from '../features/config/configSlice';
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +14,8 @@ export const store = configureStore({
     benefits: benefitsReducer,
     campaigns: campaignsReducer,
     customers: customersReducer,
+    products: productsReducer,
+    config: configReducer
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

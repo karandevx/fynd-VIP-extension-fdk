@@ -1,4 +1,12 @@
 import React from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { 
+  setSearchTerm as setProductSearchTerm,
+  setSortField as setProductSortField,
+  setSortDirection as setProductSortDirection,
+  fetchProducts,
+  fetchApplicationProducts
+} from '../../src/features/products/productsSlice';
 
 const ProductSelectionModal = ({
   showModal,
@@ -8,13 +16,19 @@ const ProductSelectionModal = ({
   onSelectAllProducts,
   products,
   isLoading,
-  productSearchTerm,
-  setProductSearchTerm,
-  productSortField,
-  setProductSortField,
-  productSortDirection,
-  setProductSortDirection
+  company_id,
+  application_id
 }) => {
+  const dispatch = useDispatch();
+  const { 
+    filters: { 
+      searchTerm: productSearchTerm, 
+      sortField: productSortField, 
+      sortDirection: productSortDirection 
+    },
+    lastFetched
+  } = useSelector((state) => state.products);
+
   if (!showModal) return null;
 
   const allVisibleSelected = products?.length > 0 && products.every(p => 
@@ -23,10 +37,18 @@ const ProductSelectionModal = ({
 
   const handleProductSort = (field) => {
     if (productSortField === field) {
-      setProductSortDirection(productSortDirection === 'asc' ? 'desc' : 'asc');
+      dispatch(setProductSortDirection(productSortDirection === 'asc' ? 'desc' : 'asc'));
     } else {
-      setProductSortField(field);
-      setProductSortDirection('asc');
+      dispatch(setProductSortField(field));
+      dispatch(setProductSortDirection('asc'));
+    }
+  };
+
+  const handleRefresh = () => {
+    if (application_id) {
+      dispatch(fetchApplicationProducts({ company_id, application_id }));
+    } else {
+      dispatch(fetchProducts(company_id));
     }
   };
 
@@ -36,12 +58,35 @@ const ProductSelectionModal = ({
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold">Select Products</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              ×
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleRefresh}
+                className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
+                title="Refresh products"
+                disabled={isLoading}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+              </button>
+              <button
+                onClick={onClose}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ×
+              </button>
+            </div>
           </div>
 
           <div className="mb-4 space-y-4">
@@ -49,7 +94,7 @@ const ProductSelectionModal = ({
               type="text"
               placeholder="Search products..."
               value={productSearchTerm}
-              onChange={(e) => setProductSearchTerm(e.target.value)}
+              onChange={(e) => dispatch(setProductSearchTerm(e.target.value))}
               className="w-full px-3 py-2 border rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
             />
             <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-gray-500">

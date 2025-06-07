@@ -14,6 +14,13 @@ import CampaignStepper from './CampaignStepper';
 import EmailTemplateForm from './EmailTemplateForm';
 import CampaignCreatePage from './CampaignCreatePage';
 import { toast } from 'react-toastify';
+import { 
+  fetchProducts, 
+  fetchApplicationProducts,
+  setSearchTerm as setProductSearchTerm,
+  setSortField as setProductSortField,
+  setSortDirection as setProductSortDirection
+} from '../../src/features/products/productsSlice';
 
 const SIDEBAR_WIDTH = '16rem';
 const EXAMPLE_MAIN_URL = window.location.origin;
@@ -40,7 +47,12 @@ const Campaigns = () => {
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [selectedSaleschannels, setSelectedSaleschannels] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [products, setProductList] = useState([]);
+  const { 
+    items: products, 
+    loading: productsLoading, 
+    error: productsError,
+    filters: { searchTerm: productSearchTerm, sortField: productSortField, sortDirection: productSortDirection }
+  } = useSelector((state) => state.products);
 
   // State for Customer Modal
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
@@ -49,11 +61,6 @@ const Campaigns = () => {
   const [customerFilterVip, setCustomerFilterVip] = useState('all');
   const { application_id } = useParams();
   
-  // State for Product Modal
-  const [productSearchTerm, setProductSearchTerm] = useState('');
-  const [productSortField, setProductSortField] = useState('name');
-  const [productSortDirection, setProductSortDirection] = useState('asc');
-
   const methods = useForm({
     defaultValues: {
       name: '',
@@ -88,22 +95,18 @@ const Campaigns = () => {
   });
 
   useEffect(() => {
-    isApplicationLaunch() ? fetchApplicationProducts() : fetchProducts();
-  }, [application_id]);
-
-  // Fetch campaigns only if data is not available or stale
-  useEffect(() => {
-    const shouldFetch = !lastFetched || Date.now() - new Date(lastFetched).getTime() > 5 * 60 * 1000; // 5 minutes cache
-    if (shouldFetch) {
-      dispatch(fetchCampaigns(company_id));
-    }
-  }, [company_id, lastFetched]);
-
-  useEffect(() => {
     if (error) {
       toast.error(error);
     }
   }, [error]);
+
+  useEffect(() => {
+    // Only fetch if we don't have data or if it's stale (older than 5 minutes)
+    const shouldFetch = !fetchedCampaigns || fetchedCampaigns.length === 0 || !lastFetched || (Date.now() - new Date(lastFetched).getTime() > 5 * 60 * 1000);
+    if (shouldFetch) {
+      dispatch(fetchCampaigns(company_id));
+    }
+  }, [dispatch, company_id, fetchedCampaigns, lastFetched]);
 
   const handleRefresh = () => {
     dispatch(fetchCampaigns(company_id));
@@ -111,58 +114,12 @@ const Campaigns = () => {
 
   const isApplicationLaunch = () => !!application_id;
 
-  const fetchProducts = async () => {
-    try {
-      const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, '/api/products/'),{
-        headers: {
-          "x-company-id": company_id,
-        }
-      });
-      console.log("Fetched products:", data);
-      setProductList(data.items);
-    } catch (e) {
-      console.error("Error fetching products:", e);
-    }
-  };
-
-  const fetchApplicationProducts = async () => {
-    try {
-      const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, `/api/products/application/${application_id}`),{
-        headers: {
-          "x-company-id": company_id,
-        }
-      });
-      console.log("Fetched application products:", data);
-      setProductList(data.items);
-    } catch (e) {
-      console.error("Error fetching application products:", e);
-    }
-  };
-
   const handleSort = (field) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
       setSortDirection('asc');
-    }
-  };
-
-  const handleCustomerSort = (field) => {
-    if (customerSortField === field) {
-      setCustomerSortDirection(customerSortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setCustomerSortField(field);
-      setCustomerSortDirection('asc');
-    }
-  };
-
-  const handleProductSort = (field) => {
-    if (productSortField === field) {
-      setProductSortDirection(productSortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setProductSortField(field);
-      setProductSortDirection('asc');
     }
   };
 
@@ -210,7 +167,6 @@ const Campaigns = () => {
                           product.slug.toLowerCase().includes(searchTermLower) ||
                           product.item_code.toLowerCase().includes(searchTermLower) ||
                           (product.brand && product.brand.name.toLowerCase().includes(searchTermLower));
-      // Add other product specific filters here if needed
       return matchesSearch;
     })
     .sort((a, b) => {
@@ -231,22 +187,6 @@ const Campaigns = () => {
       return 0;
     });
 
-  const handleProductSelect = (product) => {
-    setSelectedProducts(prev => 
-      prev.some(p => p.uid === product.uid)
-        ? prev.filter(p => p.uid !== product.uid)
-        : [...prev, { uid: product.uid, item_code: product.item_code }]
-    );
-  };
-
-  const handleCustomerSelect = (customerId) => {
-    setSelectedCustomers(prev =>
-      prev.includes(customerId)
-        ? prev?.filter(id => id !== customerId)
-        : [...prev, customerId]
-    );
-  };
-
   const handleSelectAllProducts = (productsToToggle) => {
     setSelectedProducts(prev => {
       const allSelectedInList = productsToToggle.every(product => 
@@ -261,7 +201,7 @@ const Campaigns = () => {
         // Select all in the current list
         return [...prev, ...productsToToggle.map(product => ({ 
           uid: product.uid, 
-          item_code: product.item_code 
+          item_code: product.slug 
         }))];
       }
     });
@@ -288,7 +228,7 @@ const Campaigns = () => {
     setSelectedProducts(prev => 
       prev.some(p => p.uid === product.uid)
         ? prev.filter(p => p.uid !== product.uid)
-        : [...prev, { uid: product.uid, item_code: product.item_code }]
+        : [...prev, { uid: product.uid, item_code: product.slug }]
     );
   };
 
@@ -341,6 +281,21 @@ const Campaigns = () => {
     }
   };
 
+  // Add new function to handle modal open
+  const handleProductModalOpen = () => {
+    setShowProductModal(true);
+    // Only fetch if we don't have data or if it's stale (older than 5 minutes)
+    const shouldFetch = !products?.length || !lastFetched || (Date.now() - lastFetched > 5 * 60 * 1000);
+    
+    if (shouldFetch) {
+      if (isApplicationLaunch()) {
+        dispatch(fetchApplicationProducts({ company_id, application_id }));
+      } else {
+        dispatch(fetchProducts(company_id));
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {showCreateCampaign ? (
@@ -348,7 +303,7 @@ const Campaigns = () => {
           currentStep={currentStep}
           setCurrentStep={setCurrentStep}
           setShowCreateCampaign={setShowCreateCampaign}
-          setShowProductModal={setShowProductModal}
+          setShowProductModal={handleProductModalOpen}
           setShowCustomerModal={setShowCustomerModal}
           setShowSaleschannelModal={setShowSaleschannelModal}
           selectedProducts={selectedProducts}
@@ -605,13 +560,9 @@ const Campaigns = () => {
         onProductSelect={handleIndividualProductSelect}
         onSelectAllProducts={() => handleSelectAllProducts(filteredAndSortedProducts)}
         products={filteredAndSortedProducts}
-        isLoading={isLoading}
-        productSearchTerm={productSearchTerm}
-        setProductSearchTerm={setProductSearchTerm}
-        productSortField={productSortField}
-        setProductSortField={setProductSortField}
-        productSortDirection={productSortDirection}
-        setProductSortDirection={setProductSortDirection}
+        isLoading={productsLoading}
+        company_id={company_id}
+        application_id={application_id}
       />
     </div>
   );

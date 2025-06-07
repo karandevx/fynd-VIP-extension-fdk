@@ -9,7 +9,7 @@ export const fetchSalesChannels = createAsyncThunk(
   'salesChannels/fetchSalesChannels',
   async (companyId, { rejectWithValue }) => {
     try {
-      const { data } = await axios.get(
+      const response = await axios.get(
         urlJoin(EXAMPLE_MAIN_URL, "/api/sales"),
         {
           headers: {
@@ -17,9 +17,28 @@ export const fetchSalesChannels = createAsyncThunk(
           },
         }
       );
-      return data.items || [];
+
+      const configResponse = await axios.get(
+        `${import.meta.env.VITE_FETCH_BACKEND_URL}?module=configs&companyId=${companyId}&queryType=scan`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.status === 200 && configResponse.data.data[0]) {
+        const configData = configResponse.data.data[0]?.applicationIds || [];
+        const allChannels = response.data.items || [];
+        const configuredChannels = allChannels?.filter((channel) =>
+          configData.includes?.(channel.id)
+        );
+        return configuredChannels;
+      } else {
+        throw new Error("Failed to fetch sales channels");
+      }
     } catch (error) {
-      return rejectWithValue(error.response?.data || 'Failed to fetch sales channels');
+      return rejectWithValue(error.message);
     }
   }
 );

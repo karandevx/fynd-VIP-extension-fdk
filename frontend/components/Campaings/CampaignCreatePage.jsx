@@ -136,33 +136,33 @@ const CampaignCreatePage = ({
 
       setIsSubmitting(true); // Set loading state
 
-      try {
-        const response = await axios.post(
-          urlJoin(EXAMPLE_MAIN_URL, "/api/promotion/create-campaign"),
-          {
-            payload: payload,
-          },
-          {
-            headers: {
-              "x-company-id": company_id,
-            },
-          }
-        );
+      // try {
+      //   const response = await axios.post(
+      //     urlJoin(EXAMPLE_MAIN_URL, "/api/promotion/create-campaign"),
+      //     {
+      //       payload: payload,
+      //     },
+      //     {
+      //       headers: {
+      //         "x-company-id": company_id,
+      //       },
+      //     }
+      //   );
 
-        console.log("Campaign creation response:", response);
-        if (response.data) {
-          setCampaignId(response.data.campaignId);
-          toast.success("Campaign details saved successfully!");
-          setCurrentStep(2);
-        } else {
-          throw new Error(data.message || "Failed to save campaign details");
-        }
-      } catch (error) {
-        console.error("Error saving campaign details:", error);
-        toast.error(`Error saving campaign details: ${error.message}`); // Update toast message
-      } finally {
-        setIsSubmitting(false); // Unset loading state
-      }
+      //   console.log("Campaign creation response:", response);
+      //   if (response.data) {
+      //     setCampaignId(response.data.campaignId);
+      //     toast.success("Campaign details saved successfully!");
+      //     setCurrentStep(2);
+      //   } else {
+      //     throw new Error(data.message || "Failed to save campaign details");
+      //   }
+      // } catch (error) {
+      //   console.error("Error saving campaign details:", error);
+      //   toast.error(`Error saving campaign details: ${error.message}`); // Update toast message
+      // } finally {
+      //   setIsSubmitting(false); // Unset loading state
+      // }
     } else {
       // This is the final submission step (Step 2) - Remove API call here
       // Handle final submission (email template only now)
@@ -405,19 +405,17 @@ const CampaignCreatePage = ({
                         htmlFor="startDate"
                         className="block text-sm font-medium text-gray-700 mb-1"
                       >
-                        Start Date
+                        Start Date & Time
                       </label>
                       <input
-                        type="date"
+                        type="datetime-local"
                         id="startDate"
-                        min={new Date().toISOString().split("T")[0]}
+                        min={new Date().toISOString().slice(0, 16)}
                         {...register("startDate", {
                           required: "Start date is required",
                           validate: (value) => {
                             const today = new Date();
-                            today.setHours(0, 0, 0, 0);
                             const selected = new Date(value);
-                            selected.setHours(0, 0, 0, 0);
                             return (
                               selected >= today ||
                               "Start date cannot be in the past"
@@ -437,12 +435,12 @@ const CampaignCreatePage = ({
                         htmlFor="endDate"
                         className="block text-sm font-medium text-gray-700 mb-1"
                       >
-                        End Date
+                        End Date & Time
                       </label>
                       <input
-                        type="date"
+                        type="datetime-local"
                         id="endDate"
-                        min={watch("startDate") || new Date().toISOString().split("T")[0]}
+                        min={watch("startDate") || new Date().toISOString().slice(0, 16)}
                         {...register("endDate", {
                           required: "End date is required",
                           validate: (value) => {

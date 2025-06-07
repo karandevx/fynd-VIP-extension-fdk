@@ -1,72 +1,72 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
+import React, { useEffect } from "react";
 import { useParams } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { 
+  fetchSalesChannels,
+  toggleChannel,
+  toggleAllChannels,
+  setInitialState
+} from "../../src/features/salesChannels/salesChannelsSlice";
 import { toast } from "react-toastify";
-import urlJoin from "url-join";
 
 const SalesChannelSelectionModal = ({
   showModal,
   onClose,
-  selectedChannels, // Receive selectedChannels from parent
-  onChannelSelect, // Receive channel selection handler from parent
-  onSelectAllChannels, // Receive select all handler from parent
+  selectedChannels,
+  onChannelSelect,
+  onSelectAllChannels,
 }) => {
   const { company_id } = useParams();
-  const [loading, setLoading] = useState(false);
-  const [salesChannels, setSalesChannels] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const EXAMPLE_MAIN_URL = window.location.origin;
-
-  const fetchSalesChannels = async () => {
-    setLoading(true);
-    try {
-      const response = await axios.get(
-        urlJoin(EXAMPLE_MAIN_URL, "/api/sales"),
-        {
-          headers: {
-            "x-company-id": company_id,
-          },
-        }
-      );
-      console.log("Fetched sales:", response);
-
-      const configResponse = await axios.get(
-        `${
-          import.meta.env.VITE_FETCH_BACKEND_URL
-        }?module=configs&companyId=${company_id}&queryType=scan`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      console.log("Fetched configResponse:", configResponse.data);
-
-      if (response.status === 200 && configResponse.data.data[0]) {
-        const configData = configResponse.data.data[0]?.applicationIds || [];
-        const allChannels = response.data.items || [];
-        const configuredChannels = allChannels?.filter((channel) =>
-          configData.includes?.(channel.id)
-        );
-        setSalesChannels(configuredChannels);
-      } else {
-        throw new Error("Failed to fetch sales channels");
-      }
-    } catch (e) {
-      console.error("Error fetching sales:", e);
-      toast.error("Failed to fetch sales");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const dispatch = useDispatch();
+  const { 
+    channels: salesChannels,
+    loading,
+    error,
+    lastFetched,
+    isConfigured
+  } = useSelector((state) => state.salesChannels);
+  const [searchTerm, setSearchTerm] = React.useState("");
 
   useEffect(() => {
     if (showModal) {
-      // Fetch channels only when modal is shown
-      fetchSalesChannels();
+      // Only fetch if we don't have data or if it's stale (older than 5 minutes)
+      const shouldFetch = !salesChannels?.length || !lastFetched || (Date.now() - new Date(lastFetched).getTime() > 5 * 60 * 1000);
+      if (shouldFetch) {
+        dispatch(fetchSalesChannels(company_id));
+      }
     }
-  }, [showModal, company_id]);
+  }, [showModal, company_id, dispatch, salesChannels?.length, lastFetched]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
+  const handleRefresh = () => {
+    dispatch(fetchSalesChannels(company_id));
+  };
+
+  const handleChannelSelect = (channelId) => {
+    dispatch(toggleChannel(channelId));
+    onChannelSelect(channelId);
+  };
+
+  const handleSelectAll = () => {
+    const allOriginalChannelsSelected = selectedChannels.every(channelId =>
+      selectedChannels.includes(channelId)
+    );
+    
+    if (!allOriginalChannelsSelected) {
+      return;
+    }
+
+    dispatch(toggleAllChannels({
+      allSelected: allOriginalChannelsSelected,
+      channels: filteredChannels
+    }));
+    onSelectAllChannels(filteredChannels.map(channel => channel.id));
+  };
 
   if (!showModal) return null;
 
@@ -76,7 +76,6 @@ const SalesChannelSelectionModal = ({
       channel.domain?.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Determine if all currently visible channels are selected
   const allVisibleSelected =
     filteredChannels.length > 0 &&
     filteredChannels.every((channel) => selectedChannels.includes(channel.id));
@@ -86,13 +85,43 @@ const SalesChannelSelectionModal = ({
       <div className="bg-white rounded-lg max-w-4xl h-[90%] overflow-y-auto w-full">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold">Select Sales Channels</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              ×
-            </button>
+            <div className="flex items-center space-x-3">
+              <h2 className="text-xl font-semibold">Select Sales Channels</h2>
+              {isConfigured && (
+                <span className="px-3 py-1 text-sm font-medium text-green-800 bg-green-100 rounded-full">
+                  Configured
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleRefresh}
+                className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
+                title="Refresh channels"
+                disabled={loading}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+              </button>
+              <button
+                onClick={onClose}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ×
+              </button>
+            </div>
           </div>
 
           {/* Search Control */}
@@ -129,11 +158,7 @@ const SalesChannelSelectionModal = ({
               <input
                 type="checkbox"
                 checked={allVisibleSelected}
-                onChange={() =>
-                  onSelectAllChannels(
-                    filteredChannels.map((channel) => channel.id)
-                  )
-                } // Pass filtered channel IDs
+                onChange={handleSelectAll}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
               <span className="ml-2 text-sm text-gray-900">{`Select All (${filteredChannels.length} visible)`}</span>
@@ -155,13 +180,16 @@ const SalesChannelSelectionModal = ({
                   <label
                     key={channel.id}
                     className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
-                    onClick={() => onChannelSelect(channel.id)}
+                    onClick={() => handleChannelSelect(channel.id)}
                   >
                     <input
                       type="checkbox"
-                      checked={selectedChannels.includes(channel.id)} // Check against selectedChannels prop
-                      onChange={() => onChannelSelect(channel.id)} // Use onChannelSelect prop
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3"
+                      checked={selectedChannels.includes(channel.id)}
+                      onChange={() => handleChannelSelect(channel.id)}
+                      className={`rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3 ${
+                        selectedChannels.includes(channel.id) ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                      disabled={selectedChannels.includes(channel.id)}
                     />
                     <div className="flex-shrink-0 h-8 w-8 rounded-full bg-white border border-gray-200 overflow-hidden flex items-center justify-center mr-3">
                       {channel.logo?.secure_url ? (

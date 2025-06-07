@@ -1,46 +1,32 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { useParams } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import VipProducts from "./VipProducts";
 import Benefits from "./Benefits";
+import { fetchConfig } from "../../src/features/config/configSlice";
 
 const Configure = () => {
   const { company_id } = useParams();
-  const [loading, setLoading] = useState(true);
-  const [config, setConfig] = useState(null);
+  const dispatch = useDispatch();
+  const { data: config, loading, error, lastFetched } = useSelector((state) => state.config);
 
   // Active Tab State
   const [activeTab, setActiveTab] = useState("plans");
 
-  const fetchConfig = async () => {
-    setLoading(true);
-    try {
-      const response = await axios.get(
-        `${
-          import.meta.env.VITE_FETCH_BACKEND_URL
-        }?module=configs&companyId=${company_id}&queryType=scan`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.data.success && response.data.data.length > 0) {
-        const configData = response.data.data[0];
-        setConfig(configData);
-      }
-    } catch (error) {
-      console.error("Error fetching configuration:", error);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    // Only fetch if we don't have data or if it's stale (older than 5 minutes)
+    const shouldFetch = !config || !lastFetched || (Date.now() - new Date(lastFetched).getTime() > 5 * 60 * 1000);
+    if (shouldFetch) {
+      dispatch(fetchConfig(company_id));
     }
-  };
+  }, [company_id, dispatch, config, lastFetched]);
 
   useEffect(() => {
-    fetchConfig();
-  }, [company_id]);
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
 
   if (loading) {
     return (
