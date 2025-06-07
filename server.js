@@ -21,7 +21,102 @@ const upload = multer();
 require("dotenv").config();
 const axios = require("axios");
 const { MongoClient } = require("mongodb");
+const cron = require("node-cron");
+const moment = require("moment");
 const uri = process.env.MONGO_URI;
+
+async function getLatestSession() {
+  return new Promise((resolve, reject) => {
+    sqliteInstance.all("SELECT * FROM storage", [], (err, rows) => {
+      if (err) {
+        console.error("Error querying sessions:", err.message);
+        return reject(err);
+      }
+
+      const latestSession = rows.reduce((latest, current) => {
+        return current.ttl > (latest?.ttl || 0) ? current : latest;
+      }, null);
+
+      try {
+        const session = JSON.parse(latestSession.value);
+        resolve(session);
+      } catch (parseErr) {
+        reject(parseErr);
+      }
+    });
+  });
+}
+
+cron.schedule("0 0 * * *", async () => {
+  try {
+    const { company_id } = (await getLatestSession()) || {};
+
+    const client = new MongoClient(uri);
+    await client.connect();
+    const db = client.db(`${company_id}_VIP_Program`);
+    const users = await db.collection("users").find({ isVIP: true }).toArray();
+
+    console.log("Running VIP cleanup cron job at UTC 12:00 AM");
+
+    const today = moment.utc().startOf("day");
+
+    for (const user of users) {
+      let updated = false;
+
+      // Check each type expiry
+      [
+        "PRODUCT_EXCLUSIVITY",
+        "CUSTOM_PROMOTIONS",
+        "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS",
+      ].forEach((type) => {
+        const expiryField = `${type}_Expiry`;
+        if (user[expiryField]) {
+          const expiryDate = moment.utc(user[expiryField]).startOf("day");
+
+          if (expiryDate.isSame(today)) {
+            // Expired today - mark type false
+            user[type] = false;
+            user[expiryField] = null;
+            updated = true;
+          }
+        }
+      });
+
+      // After checking all types, update isVIP and VIPDays
+      const activeTypes = [
+        "PRODUCT_EXCLUSIVITY",
+        "CUSTOM_PROMOTIONS",
+        "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS",
+      ].filter((type) => user[type]);
+
+      if (activeTypes.length === 0) {
+        // No active types, mark non-VIP
+        user.isVIP = false;
+        user.VIPDays = 0;
+        updated = true;
+      } else {
+        // Still VIP, update VIPDays as max remaining days of any type expiry
+        const futureExpiries = activeTypes.map((type) =>
+          moment.utc(user[`${type}_Expiry`]).endOf("day")
+        );
+
+        const maxExpiry = moment.max(futureExpiries);
+        const remainingDays = maxExpiry.diff(today, "days");
+        user.VIPDays = remainingDays >= 0 ? remainingDays : 0;
+        updated = true;
+      }
+
+      if (updated) {
+        await user.save();
+        console.log(`Updated user ${user._id}`);
+      }
+    }
+
+    console.log("VIP cleanup cron job completed.");
+  } catch (error) {
+    console.error("Error running VIP cleanup cron job:", error);
+  }
+});
 
 const processShipmentEvent = async (
   eventName,
@@ -43,7 +138,6 @@ const processShipmentEvent = async (
   const VIPDays = getVIPDaysFromTags(shipment?.bags);
   const { firstName, lastName, email, phone, userId } =
     extractUserInfo(shipment);
-  const userName = shipment?.delivery_address?.name ?? "";
 
   if (vipItemId) {
     const client = new MongoClient(uri);
@@ -62,11 +156,11 @@ const processShipmentEvent = async (
       orderId: shipment?.order_id || "",
       applicationId,
       createdAt: new Date(shipment?.order_created),
-      VIPDays: 0,
+      VIPDays: VIPDays,
       [`${type}_Expiry`]: getVIPExpiryDate(shipment?.order_created, VIPDays),
-      updatedAt: new Date(),
       isVIP: true,
       [type]: true,
+      updatedAt: new Date(),
     };
 
     await upsertUser(userPayload, companyId);
@@ -574,27 +668,7 @@ salesChannelRouter.get("/", async function view(req, res, next) {
     next(err);
   }
 });
-function getLatestSession() {
-  return new Promise((resolve, reject) => {
-    sqliteInstance.all("SELECT * FROM storage", [], (err, rows) => {
-      if (err) {
-        console.error("Error querying sessions:", err.message);
-        return reject(err);
-      }
 
-      const latestSession = rows.reduce((latest, current) => {
-        return current.ttl > (latest?.ttl || 0) ? current : latest;
-      }, null);
-
-      try {
-        const session = JSON.parse(latestSession.value);
-        resolve(session);
-      } catch (parseErr) {
-        reject(parseErr);
-      }
-    });
-  });
-}
 salesChannelRouter.post(
   "/configure-plans",
   async function view(req, res, next) {
