@@ -19,8 +19,9 @@ const Dashboard = () => {
   // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height =
+        Math.min(textareaRef.current.scrollHeight, 120) + "px";
     }
   }, [inputMessage]);
 
@@ -33,7 +34,7 @@ const Dashboard = () => {
       content: inputMessage.trim(),
       timestamp: new Date().toLocaleTimeString(),
     };
-    
+
     setMessages((prev) => [...prev, userMessage]);
     setInputMessage("");
     setIsLoading(true);
@@ -42,29 +43,32 @@ const Dashboard = () => {
       const response = await fetch(
         `https://asia-south1.workflow.boltic.app/35d18e55-a6ed-4b67-a841-6001219b35dd/get-mongodb-query`,
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             prompt: userMessage.content,
           }),
-          signal: AbortSignal.timeout(120000)
+          signal: AbortSignal.timeout(120000),
         }
       );
-      
+
       const data = await response.json();
 
       const aiMessage = {
         type: "ai",
-        content: data.reply || "I'm sorry, I couldn't process your request at the moment.",
+        content:
+          data.reply ||
+          "I'm sorry, I couldn't process your request at the moment.",
         timestamp: new Date().toLocaleTimeString(),
       };
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
       const errorMessage = {
         type: "error",
-        content: "I'm having trouble connecting right now. Please try again in a moment.",
+        content:
+          "I'm having trouble connecting right now. Please try again in a moment.",
         timestamp: new Date().toLocaleTimeString(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -75,8 +79,8 @@ const Dashboard = () => {
 
   const formatMessage = (content) => {
     // Handle code blocks and formatting
-    return content.split('\n').map((line, index) => {
-      if (line.trim() === '') return <br key={index} />;
+    return content.split("\n").map((line, index) => {
+      if (line.trim() === "") return <br key={index} />;
       return (
         <div key={index} className="mb-1 last:mb-0">
           {line}
@@ -114,10 +118,9 @@ const Dashboard = () => {
   ];
 
   const exampleQuestions = [
-    "Show me VIP customer trends this month",
-    "What's the performance of our latest campaign?",
-    "Find customers with highest engagement",
-    "Analyze customer behavior patterns"
+    "Get a list of campaigns",
+    "Get me the list of top customers based on product exclusivity plan",
+    "Get all users",
   ];
 
   return (
@@ -127,7 +130,9 @@ const Dashboard = () => {
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-white/90 sticky top-0 z-10">
           <div className="flex items-center gap-2">
             <span className="text-xl">🤖</span>
-            <span className="font-bold text-lg text-gray-800 tracking-tight">AI Analyst</span>
+            <span className="font-bold text-lg text-gray-800 tracking-tight">
+              AI Analyst
+            </span>
           </div>
           <button
             onClick={clearChat}
@@ -149,12 +154,16 @@ const Dashboard = () => {
                   AI Analyst at Your Service
                 </h3>
                 <p className="text-gray-600 leading-relaxed">
-                  I'm here to help you analyze your VIP customers, campaigns, and business data.<br />
+                  I'm here to help you analyze your VIP customers, campaigns,
+                  and business data.
+                  <br />
                   Ask me anything or try one of the examples below.
                 </p>
               </div>
               <div className="w-full space-y-3">
-                <p className="text-sm font-medium text-gray-700 mb-3">Try asking:</p>
+                <p className="text-sm font-medium text-gray-700 mb-3">
+                  Try asking:
+                </p>
                 {exampleQuestions.map((question, index) => (
                   <button
                     key={index}
@@ -163,11 +172,23 @@ const Dashboard = () => {
                   >
                     <div className="flex items-start gap-3">
                       <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:bg-blue-100">
-                        <svg className="w-3 h-3 text-gray-500 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        <svg
+                          className="w-3 h-3 text-gray-500 group-hover:text-blue-600"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                          />
                         </svg>
                       </div>
-                      <span className="text-sm text-gray-700 group-hover:text-gray-900">{question}</span>
+                      <span className="text-sm text-gray-700 group-hover:text-gray-900">
+                        {question}
+                      </span>
                     </div>
                   </button>
                 ))}
@@ -177,20 +198,36 @@ const Dashboard = () => {
             messages.map((message, index) => (
               <div
                 key={index}
-                className={`w-full px-0 md:px-4 py-2 flex ${message.type === "user" ? "justify-end" : "justify-start"}`}
+                className={`w-full px-0 md:px-4 py-2 flex ${
+                  message.type === "user" ? "justify-end" : "justify-start"
+                }`}
               >
                 <div
                   className={`w-full md:w-auto max-w-2xl flex items-end gap-2 animate-fade-in ${
-                    message.type === "user"
-                      ? "flex-row-reverse"
-                      : ""
+                    message.type === "user" ? "flex-row-reverse" : ""
                   }`}
                 >
                   {/* Avatar */}
-                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${message.type === "user" ? "bg-blue-600" : "bg-gradient-to-br from-blue-500 to-purple-600"} text-white text-lg shadow-sm`}>
+                  <div
+                    className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                      message.type === "user"
+                        ? "bg-blue-600"
+                        : "bg-gradient-to-br from-blue-500 to-purple-600"
+                    } text-white text-lg shadow-sm`}
+                  >
                     {message.type === "user" ? (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                        />
                       </svg>
                     ) : (
                       <span>🤖</span>
@@ -205,7 +242,7 @@ const Dashboard = () => {
                         ? "bg-gray-50 text-gray-900 rounded-bl-2xl rounded-tl-2xl border border-gray-200"
                         : "bg-red-50 text-red-700 border border-red-200"
                     }`}
-                    style={{ maxWidth: '90vw', wordBreak: 'break-word' }}
+                    style={{ maxWidth: "90vw", wordBreak: "break-word" }}
                   >
                     {formatMessage(message.content)}
                   </div>
@@ -224,7 +261,9 @@ const Dashboard = () => {
                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150"></span>
                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-300"></span>
-                    <span className="ml-2 text-sm text-gray-500">AI is typing...</span>
+                    <span className="ml-2 text-sm text-gray-500">
+                      AI is typing...
+                    </span>
                   </div>
                 </div>
               </div>
@@ -237,14 +276,14 @@ const Dashboard = () => {
         <form
           onSubmit={handleSendMessage}
           className="w-full px-2 md:px-4 py-4 bg-white/95 border-t border-gray-100 flex items-center gap-3 sticky bottom-0 z-20"
-          style={{ boxShadow: '0 -2px 16px 0 rgba(0,0,0,0.03)' }}
+          style={{ boxShadow: "0 -2px 16px 0 rgba(0,0,0,0.03)" }}
         >
           <textarea
             ref={textareaRef}
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 handleSendMessage(e);
               }
@@ -253,7 +292,7 @@ const Dashboard = () => {
             disabled={isLoading}
             rows={1}
             className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none shadow-sm max-h-32"
-            style={{ minHeight: '44px' }}
+            style={{ minHeight: "44px" }}
           />
           <button
             type="submit"
