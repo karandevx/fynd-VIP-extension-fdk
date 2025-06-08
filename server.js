@@ -901,7 +901,7 @@ promotionRouter.post("/create-campaign", async function view(req, res, next) {
       if (!groupObj?.groupId) {
         continue; // Skip if no group found for this appId
       } else {
-        if (type !== "PRODUCT_EXCLUSIVITY") {
+        if (groupName !== "PRODUCT_EXCLUSIVITY") {
           const prmotionPayload = {
             buy_rules: {
               "rule#1": {

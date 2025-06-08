@@ -180,19 +180,17 @@ const CampaignCreatePage = ({
   };
 
   return (
-    <div className="min-h-screen p-6 flex justify-center items-center">
-      <div className="max-w-4xl w-full bg-white p-8 rounded-lg shadow-xl">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-white flex items-center justify-center py-8 px-2">
+      <div className="w-full max-w-3xl bg-white/90 rounded-3xl shadow-2xl border border-gray-100 p-8">
         {/* Header */}
         <div className="mb-8 border-b pb-6 flex justify-between items-center">
           <div>
-            <p className="text-3xl font-bold text-gray-800">Create Campaign</p>
-            <p className="mt-1 !text-base text-gray-600">
-              Set up your new marketing campaign
-            </p>
+            <h1 className="!text-3xl font-extrabold text-gray-900 mb-1 tracking-tight">Create Campaign</h1>
+            <p className="mt-1 !text-base text-gray-500">Set up your new marketing campaign</p>
           </div>
           <button
             onClick={() => setShowCreateCampaign(false)}
-            className="text-gray-500 hover:text-gray-700 text-3xl leading-none font-light"
+            className="text-gray-400 hover:text-gray-700 text-3xl leading-none font-light transition-colors"
             aria-label="Close"
           >
             ×
@@ -205,69 +203,43 @@ const CampaignCreatePage = ({
         </div>
 
         {/* Form Content */}
-        <div className="space-y-6">
+        <div className="space-y-8">
           <FormProvider {...methods}>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
               {currentStep === 1 ? (
-                <div className="space-y-6">
+                <div className="space-y-8">
+                  {/* Campaign Name */}
                   <div>
-                    <label
-                      htmlFor="campaignName"
-                      className="block text-sm font-medium text-gray-700 mb-1"
-                    >
-                      Campaign Name
-                    </label>
+                    <label htmlFor="campaignName" className="block text-sm font-semibold text-gray-700 mb-1">Campaign Name</label>
                     <input
                       type="text"
                       id="campaignName"
-                      {...register("name", {
-                        required: "Campaign name is required",
-                      })}
-                      className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      {...register("name", { required: "Campaign name is required" })}
+                      className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base shadow-sm"
                     />
-                    {errors.name && (
-                      <p className="mt-2 !text-sm text-red-600">
-                        {errors.name.message}
-                      </p>
-                    )}
+                    {errors.name && <p className="mt-2 !text-sm text-red-600">{errors.name.message}</p>}
                   </div>
 
+                  {/* Description */}
                   <div>
-                    <label
-                      htmlFor="description"
-                      className="block text-sm font-medium text-gray-700 mb-1"
-                    >
-                      Description
-                    </label>
+                    <label htmlFor="description" className="block text-sm font-semibold text-gray-700 mb-1">Description</label>
                     <textarea
                       id="description"
-                      {...register("description", {
-                        required: "Description is required",
-                      })}
-                      className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      {...register("description", { required: "Description is required" })}
+                      className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base shadow-sm"
                       rows="3"
                     />
-                    {errors.description && (
-                      <p className="mt-2 !text-sm text-red-600">
-                        {errors.description.message}
-                      </p>
-                    )}
+                    {errors.description && <p className="mt-2 !text-sm text-red-600">{errors.description.message}</p>}
                   </div>
 
+                  {/* Campaign Type */}
                   <div>
-                    <label
-                      htmlFor="campaignType"
-                      className="block text-sm font-medium text-gray-700 mb-1"
-                    >
-                      Campaign Type
-                    </label>
+                    <label htmlFor="campaignType" className="block text-sm font-semibold text-gray-700 mb-1">Campaign Type</label>
                     <select
                       id="campaignType"
                       value={campaignType}
                       onChange={(e) => setCampaignType(e.target.value)}
-                      className={`block w-full rounded-md border ${
-                        errors.campaignType ? 'border-red-500' : 'border-gray-300'
-                      } px-3 py-2 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                      className={`block w-full rounded-lg border ${errors.campaignType ? 'border-red-500' : 'border-gray-300'} px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base shadow-sm`}
                       {...register("campaignType", {
                         required: "Campaign type is required",
                         onChange: (e) => setCampaignType(e.target.value)
@@ -278,171 +250,105 @@ const CampaignCreatePage = ({
                       <option value="CUSTOM_PROMOTIONS">Custom Promotions</option>
                       <option value="PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS">Product Exclusivity & Custom Promotions</option>
                     </select>
-                    {errors.campaignType && (
-                      <p className="mt-2 !text-sm text-red-600">
-                        {errors.campaignType.message}
-                      </p>
-                    )}
+                    {errors.campaignType && <p className="mt-2 !text-sm text-red-600">{errors.campaignType.message}</p>}
                   </div>
 
+                  {/* Offer/Discount Section */}
                   {(campaignType === "CUSTOM_PROMOTIONS" || campaignType === "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS") && (
                     <>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label
-                            htmlFor="offerText"
-                            className="block text-sm font-medium text-gray-700 mb-1"
-                          >
-                            Offer Text
-                          </label>
+                          <label htmlFor="offerText" className="block text-sm font-semibold text-gray-700 mb-1">Offer Text</label>
                           <input
                             type="text"
                             id="offerText"
-                            {...register("offerText", {
-                              required: campaignType === "CUSTOM_PROMOTIONS" || campaignType === "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS" ? "Offer text is required" : false,
-                            })}
-                            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            {...register("offerText", { required: campaignType === "CUSTOM_PROMOTIONS" || campaignType === "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS" ? "Offer text is required" : false })}
+                            className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base shadow-sm"
                             placeholder="e.g., 20% off"
                           />
-                          {errors.offerText && (
-                            <p className="mt-2 !text-sm text-red-600">
-                              {errors.offerText.message}
-                            </p>
-                          )}
+                          {errors.offerText && <p className="mt-2 !text-sm text-red-600">{errors.offerText.message}</p>}
                         </div>
                         <div>
-                          <label
-                            htmlFor="offerLabel"
-                            className="block text-sm font-medium text-gray-700 mb-1"
-                          >
-                            Offer Label
-                          </label>
+                          <label htmlFor="offerLabel" className="block text-sm font-semibold text-gray-700 mb-1">Offer Label</label>
                           <input
                             type="text"
                             id="offerLabel"
-                            {...register("offerLabel", {
-                              required: campaignType === "CUSTOM_PROMOTIONS" || campaignType === "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS" ? "Offer label is required" : false,
-                            })}
-                            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            {...register("offerLabel", { required: campaignType === "CUSTOM_PROMOTIONS" || campaignType === "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS" ? "Offer label is required" : false })}
+                            className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base shadow-sm"
                             placeholder="e.g., Limited Time"
                           />
-                          {errors.offerLabel && (
-                            <p className="mt-2 !text-sm text-red-600">
-                              {errors.offerLabel.message}
-                            </p>
-                          )}
+                          {errors.offerLabel && <p className="mt-2 !text-sm text-red-600">{errors.offerLabel.message}</p>}
                         </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label
-                            htmlFor="discountType"
-                            className="block text-sm font-medium text-gray-700 mb-1"
-                          >
-                            Discount Type
-                          </label>
+                          <label htmlFor="discountType" className="block text-sm font-semibold text-gray-700 mb-1">Discount Type</label>
                           <select
                             id="discountType"
-                            {...register("discount.type", {
-                              required: campaignType === "CUSTOM_PROMOTIONS" || campaignType === "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS" ? "Discount type is required" : false,
-                            })}
-                            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            {...register("discount.type", { required: campaignType === "CUSTOM_PROMOTIONS" || campaignType === "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS" ? "Discount type is required" : false })}
+                            className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base shadow-sm"
                           >
                             <option value="">Select Discount Type</option>
                             <option value="amount">Amount</option>
                             <option value="percentage">Percentage</option>
                           </select>
-                          {errors.discount?.type && (
-                            <p className="mt-2 !text-sm text-red-600">
-                              {errors.discount.type.message}
-                            </p>
-                          )}
+                          {errors.discount?.type && <p className="mt-2 !text-sm text-red-600">{errors.discount.type.message}</p>}
                         </div>
                         <div>
-                          <label
-                            htmlFor="discountValue"
-                            className="block text-sm font-medium text-gray-700 mb-1"
-                          >
-                            Discount Value
-                          </label>
+                          <label htmlFor="discountValue" className="block text-sm font-semibold text-gray-700 mb-1">Discount Value</label>
                           <input
                             type="number"
                             id="discountValue"
                             {...register("discount.value", {
                               required: campaignType === "CUSTOM_PROMOTIONS" || campaignType === "PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS" ? "Discount value is required" : false,
-                              min: {
-                                value: 0,
-                                message: "Discount value must be positive",
-                              },
+                              min: { value: 0, message: "Discount value must be positive" },
                               validate: (value) => {
                                 const type = watch("discount.type");
-                                if (
-                                  type === "percentage" &&
-                                  (value < 0 || value > 100)
-                                ) {
+                                if (type === "percentage" && (value < 0 || value > 100)) {
                                   return "Percentage discount must be between 0 and 100";
                                 }
                                 return true;
                               },
                             })}
-                            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base shadow-sm"
                             step="any"
                           />
-                          {errors.discount?.value && (
-                            <p className="mt-2 !text-sm text-red-600">
-                              {errors.discount.value.message}
-                            </p>
-                          )}
+                          {errors.discount?.value && <p className="mt-2 !text-sm text-red-600">{errors.discount.value.message}</p>}
                         </div>
                       </div>
                     </>
                   )}
 
+                  {/* Date Section */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label
-                        htmlFor="startDate"
-                        className="block text-sm font-medium text-gray-700 mb-1"
-                      >
-                        Start Date
-                      </label>
+                      <label htmlFor="startDate" className="block text-sm font-semibold text-gray-700 mb-1">Start Date & Time</label>
                       <input
-                        type="date"
+                        type="datetime-local"
                         id="startDate"
-                        min={new Date().toISOString().split("T")[0]}
+                        min={new Date().toISOString().slice(0, 16)}
                         {...register("startDate", {
                           required: "Start date is required",
                           validate: (value) => {
                             const today = new Date();
-                            today.setHours(0, 0, 0, 0);
                             const selected = new Date(value);
-                            selected.setHours(0, 0, 0, 0);
                             return (
                               selected >= today ||
                               "Start date cannot be in the past"
                             );
                           },
                         })}
-                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base shadow-sm"
                       />
-                      {errors.startDate && (
-                        <p className="mt-2 !text-sm text-red-600">
-                          {errors.startDate.message}
-                        </p>
-                      )}
+                      {errors.startDate && <p className="mt-2 !text-sm text-red-600">{errors.startDate.message}</p>}
                     </div>
                     <div>
-                      <label
-                        htmlFor="endDate"
-                        className="block text-sm font-medium text-gray-700 mb-1"
-                      >
-                        End Date
-                      </label>
+                      <label htmlFor="endDate" className="block text-sm font-semibold text-gray-700 mb-1">End Date & Time</label>
                       <input
-                        type="date"
+                        type="datetime-local"
                         id="endDate"
-                        min={watch("startDate") || new Date().toISOString().split("T")[0]}
+                        min={watch("startDate") || new Date().toISOString().slice(0, 16)}
                         {...register("endDate", {
                           required: "End date is required",
                           validate: (value) => {
@@ -453,72 +359,53 @@ const CampaignCreatePage = ({
                             return true;
                           },
                         })}
-                        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base shadow-sm"
                       />
-                      {errors.endDate && (
-                        <p className="mt-2 !text-sm text-red-600">
-                          {errors.endDate.message}
-                        </p>
-                      )}
+                      {errors.endDate && <p className="mt-2 !text-sm text-red-600">{errors.endDate.message}</p>}
                     </div>
-                    {dateError && (
-                      <p className="mt-2 !text-sm text-red-600 col-span-full">
-                        {dateError}
-                      </p>
-                    )}
+                    {dateError && <p className="mt-2 !text-sm text-red-600 col-span-full">{dateError}</p>}
                   </div>
 
+                  {/* Products Section */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Products
-                    </label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Products</label>
                     <button
                       type="button"
                       onClick={() => setShowProductModal(true)}
-                      className="flex justify-between items-center w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 bg-white hover:bg-gray-50 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
+                      className="flex justify-between items-center w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base shadow-sm transition duration-150 ease-in-out"
                     >
                       <span>{selectedProducts.length} products selected</span>
                       <span className="ml-2 text-gray-400">→</span>
                     </button>
-                    {productError && (
-                      <p className="mt-2 !text-sm text-red-600">
-                        {productError}
-                      </p>
-                    )}
+                    {productError && <p className="mt-2 !text-sm text-red-600">{productError}</p>}
                   </div>
 
+                  {/* Sales Channels Section */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Sales Channels
-                    </label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Sales Channels</label>
                     <button
                       type="button"
                       onClick={() => setShowSaleschannelModal(true)}
-                      className="flex justify-between items-center w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 bg-white hover:bg-gray-50 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
+                      className="flex justify-between items-center w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base shadow-sm transition duration-150 ease-in-out"
                     >
-                      <span>
-                        {selectedSaleschannels.length} channels selected
-                      </span>
+                      <span>{selectedSaleschannels.length} channels selected</span>
                       <span className="ml-2 text-gray-400">→</span>
                     </button>
-                    {customerError && (
-                      <p className="mt-2 !text-sm text-red-600">
-                        {customerError}
-                      </p>
-                    )}
+                    {customerError && <p className="mt-2 !text-sm text-red-600">{customerError}</p>}
                   </div>
 
+                  {/* Action Buttons */}
                   <div className="flex justify-end space-x-4 pt-6 border-t">
                     <button
                       type="button"
                       onClick={() => setShowCreateCampaign(false)}
-                      className="px-6 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100 transition duration-150 ease-in-out shadow-sm"
+                      className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition duration-150 ease-in-out shadow-sm"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-150 ease-in-out shadow-sm"
+                      className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-500 text-white rounded-lg hover:from-blue-700 hover:to-indigo-600 transition duration-150 ease-in-out shadow-lg font-semibold"
                     >
                       Next
                     </button>

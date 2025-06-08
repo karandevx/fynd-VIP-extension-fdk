@@ -14,6 +14,13 @@ import CampaignStepper from './CampaignStepper';
 import EmailTemplateForm from './EmailTemplateForm';
 import CampaignCreatePage from './CampaignCreatePage';
 import { toast } from 'react-toastify';
+import { 
+  fetchProducts, 
+  fetchApplicationProducts,
+  setSearchTerm as setProductSearchTerm,
+  setSortField as setProductSortField,
+  setSortDirection as setProductSortDirection
+} from '../../src/features/products/productsSlice';
 
 const SIDEBAR_WIDTH = '16rem';
 const EXAMPLE_MAIN_URL = window.location.origin;
@@ -40,7 +47,12 @@ const Campaigns = () => {
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [selectedSaleschannels, setSelectedSaleschannels] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [products, setProductList] = useState([]);
+  const { 
+    items: products, 
+    loading: productsLoading, 
+    error: productsError,
+    filters: { searchTerm: productSearchTerm, sortField: productSortField, sortDirection: productSortDirection }
+  } = useSelector((state) => state.products);
 
   // State for Customer Modal
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
@@ -49,11 +61,6 @@ const Campaigns = () => {
   const [customerFilterVip, setCustomerFilterVip] = useState('all');
   const { application_id } = useParams();
   
-  // State for Product Modal
-  const [productSearchTerm, setProductSearchTerm] = useState('');
-  const [productSortField, setProductSortField] = useState('name');
-  const [productSortDirection, setProductSortDirection] = useState('asc');
-
   const methods = useForm({
     defaultValues: {
       name: '',
@@ -88,22 +95,19 @@ const Campaigns = () => {
   });
 
   useEffect(() => {
-    isApplicationLaunch() ? fetchApplicationProducts() : fetchProducts();
-  }, [application_id]);
-
-  // Fetch campaigns only if data is not available or stale
-  useEffect(() => {
-    const shouldFetch = !lastFetched || Date.now() - new Date(lastFetched).getTime() > 5 * 60 * 1000; // 5 minutes cache
-    if (shouldFetch) {
-      dispatch(fetchCampaigns(company_id));
-    }
-  }, [company_id, lastFetched]);
-
-  useEffect(() => {
     if (error) {
       toast.error(error);
     }
   }, [error]);
+
+
+  useEffect(() => {
+    // Only fetch if we don't have data or if it's stale (older than 5 minutes)
+    const shouldFetch = !fetchedCampaigns || fetchedCampaigns.length === 0 || !lastFetched || (Date.now() - new Date(lastFetched).getTime() > 5 * 60 * 1000);
+    if (shouldFetch) {
+      dispatch(fetchCampaigns(company_id));
+    }
+  }, [dispatch, company_id, fetchedCampaigns, lastFetched]);
 
   const handleRefresh = () => {
     dispatch(fetchCampaigns(company_id));
@@ -111,58 +115,12 @@ const Campaigns = () => {
 
   const isApplicationLaunch = () => !!application_id;
 
-  const fetchProducts = async () => {
-    try {
-      const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, '/api/products/'),{
-        headers: {
-          "x-company-id": company_id,
-        }
-      });
-      console.log("Fetched products:", data);
-      setProductList(data.items);
-    } catch (e) {
-      console.error("Error fetching products:", e);
-    }
-  };
-
-  const fetchApplicationProducts = async () => {
-    try {
-      const { data } = await axios.get(urlJoin(EXAMPLE_MAIN_URL, `/api/products/application/${application_id}`),{
-        headers: {
-          "x-company-id": company_id,
-        }
-      });
-      console.log("Fetched application products:", data);
-      setProductList(data.items);
-    } catch (e) {
-      console.error("Error fetching application products:", e);
-    }
-  };
-
   const handleSort = (field) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
       setSortDirection('asc');
-    }
-  };
-
-  const handleCustomerSort = (field) => {
-    if (customerSortField === field) {
-      setCustomerSortDirection(customerSortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setCustomerSortField(field);
-      setCustomerSortDirection('asc');
-    }
-  };
-
-  const handleProductSort = (field) => {
-    if (productSortField === field) {
-      setProductSortDirection(productSortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setProductSortField(field);
-      setProductSortDirection('asc');
     }
   };
 
@@ -210,7 +168,6 @@ const Campaigns = () => {
                           product.slug.toLowerCase().includes(searchTermLower) ||
                           product.item_code.toLowerCase().includes(searchTermLower) ||
                           (product.brand && product.brand.name.toLowerCase().includes(searchTermLower));
-      // Add other product specific filters here if needed
       return matchesSearch;
     })
     .sort((a, b) => {
@@ -231,22 +188,6 @@ const Campaigns = () => {
       return 0;
     });
 
-  const handleProductSelect = (product) => {
-    setSelectedProducts(prev => 
-      prev.some(p => p.uid === product.uid)
-        ? prev.filter(p => p.uid !== product.uid)
-        : [...prev, { uid: product.uid, item_code: product.item_code }]
-    );
-  };
-
-  const handleCustomerSelect = (customerId) => {
-    setSelectedCustomers(prev =>
-      prev.includes(customerId)
-        ? prev?.filter(id => id !== customerId)
-        : [...prev, customerId]
-    );
-  };
-
   const handleSelectAllProducts = (productsToToggle) => {
     setSelectedProducts(prev => {
       const allSelectedInList = productsToToggle.every(product => 
@@ -261,7 +202,7 @@ const Campaigns = () => {
         // Select all in the current list
         return [...prev, ...productsToToggle.map(product => ({ 
           uid: product.uid, 
-          item_code: product.item_code 
+          item_code: product.slug 
         }))];
       }
     });
@@ -288,7 +229,7 @@ const Campaigns = () => {
     setSelectedProducts(prev => 
       prev.some(p => p.uid === product.uid)
         ? prev.filter(p => p.uid !== product.uid)
-        : [...prev, { uid: product.uid, item_code: product.item_code }]
+        : [...prev, { uid: product.uid, item_code: product.slug }]
     );
   };
 
@@ -341,50 +282,80 @@ const Campaigns = () => {
     }
   };
 
+  // Add new function to handle modal open
+  const handleProductModalOpen = () => {
+    setShowProductModal(true);
+    // Only fetch if we don't have data or if it's stale (older than 5 minutes)
+    const shouldFetch = !products?.length || !lastFetched || (Date.now() - lastFetched > 5 * 60 * 1000);
+    
+    if (shouldFetch) {
+      if (isApplicationLaunch()) {
+        dispatch(fetchApplicationProducts({ company_id, application_id }));
+      } else {
+        dispatch(fetchProducts(company_id));
+      }
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {showCreateCampaign ? (
-        <CampaignCreatePage
-          currentStep={currentStep}
-          setCurrentStep={setCurrentStep}
-          setShowCreateCampaign={setShowCreateCampaign}
-          setShowProductModal={setShowProductModal}
-          setShowCustomerModal={setShowCustomerModal}
-          setShowSaleschannelModal={setShowSaleschannelModal}
-          selectedProducts={selectedProducts}
-          selectedCustomers={selectedCustomers}
-          selectedSaleschannels={selectedSaleschannels}
-          methods={methods}
-          onSubmit={handleSubmit(onSubmit)}
-          errors={errors}
-          watch={watch}
-          register={register}
-          handleIndividualProductSelect={handleIndividualProductSelect}
-          handleIndividualCustomerSelect={handleIndividualCustomerSelect}
-          handleIndividualSalesChannelSelect={handleIndividualSalesChannelSelect}
-          handleSelectAllCustomers={handleSelectAllCustomers}
-          handleSelectAllSalesChannels={handleSelectAllSalesChannels}
-        />
-      ) : (
-        <div>
-          {/* Campaigns List */}
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-gray-200">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-white py-8 px-2">
+      <div className="max-w-6xl mx-auto">
+        {showCreateCampaign ? (
+          <CampaignCreatePage
+            currentStep={currentStep}
+            setCurrentStep={setCurrentStep}
+            setShowCreateCampaign={setShowCreateCampaign}
+            setShowProductModal={handleProductModalOpen}
+            setShowCustomerModal={setShowCustomerModal}
+            setShowSaleschannelModal={setShowSaleschannelModal}
+            selectedProducts={selectedProducts}
+            selectedCustomers={selectedCustomers}
+            selectedSaleschannels={selectedSaleschannels}
+            methods={methods}
+            onSubmit={handleSubmit(onSubmit)}
+            errors={errors}
+            watch={watch}
+            register={register}
+            handleIndividualProductSelect={handleIndividualProductSelect}
+            handleIndividualCustomerSelect={handleIndividualCustomerSelect}
+            handleIndividualSalesChannelSelect={handleIndividualSalesChannelSelect}
+            handleSelectAllCustomers={handleSelectAllCustomers}
+            handleSelectAllSalesChannels={handleSelectAllSalesChannels}
+          />
+        ) : (
+          <>
+            {/* Header */}
+            <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h1 className="!text-3xl font-extrabold text-gray-900 mb-1 tracking-tight">Campaigns</h1>
+                <p className="text-gray-500 !text-base">Manage and analyze your marketing campaigns with ease.</p>
+              </div>
+              <button
+                onClick={() => setShowCreateCampaign(true)}
+                className="bg-gradient-to-r from-blue-600 to-indigo-500 hover:from-blue-700 hover:to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200"
+              >
+                + Create Campaign
+              </button>
+            </div>
+
+            {/* Card Container */}
+            <div className="bg-white/90 rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+              {/* Filters Row */}
+              <div className="flex flex-col md:flex-row gap-4 items-center justify-between px-6 py-5 border-b border-gray-100 bg-white/80">
+                <div className="flex-1 w-full">
                   <input
                     type="text"
                     placeholder="Search campaigns..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 bg-gray-50 text-gray-800 placeholder-gray-400 shadow-sm transition-all"
                   />
                 </div>
-                <div className="flex gap-4">
+                <div className="flex gap-3 w-full md:w-auto">
                   <select
                     value={filterType}
                     onChange={(e) => setFilterType(e.target.value)}
-                    className="px-3 py-2 border cursor-pointer rounded-md border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+                    className="px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 bg-gray-50 text-gray-800 shadow-sm transition-all"
                   >
                     <option value="all">All Types</option>
                     <option value="PRODUCT_EXCLUSIVITY">Product Exclusivity</option>
@@ -393,7 +364,7 @@ const Campaigns = () => {
                   </select>
                   <button
                     onClick={handleRefresh}
-                    className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
+                    className="p-2 rounded-lg bg-gradient-to-r from-blue-100 to-indigo-100 hover:from-blue-200 hover:to-indigo-200 text-blue-700 shadow-sm transition-all duration-200 flex items-center justify-center"
                     title="Refresh campaigns"
                   >
                     <svg
@@ -413,206 +384,180 @@ const Campaigns = () => {
                   </button>
                 </div>
               </div>
-            </div>
 
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Name
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Type
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Date Range
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Status
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {isCampaignsLoading ? (
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-100">
+                  <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
                     <tr>
-                      <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
-                        <div className="flex justify-center items-center">
-                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
-                          Loading campaigns...
-                        </div>
-                      </td>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Name</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Type</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Date Range</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Actions</th>
                     </tr>
-                  ) : (
-                    filteredAndSortedCampaigns.map((campaign) => (
-                      <tr key={campaign?._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{campaign?.name||"" }</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-500">
-                            {campaign?.type === 'PRODUCT_EXCLUSIVITY' ? 'Product Exclusivity' :
-                             campaign?.type === 'CUSTOM_PROMOTIONS' ? 'Custom Promotions' :
-                             campaign?.type === 'PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS' ? 'Product Exclusivity & Custom Promotions' :
-                             'N/A'}
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-100">
+                    {isCampaignsLoading ? (
+                      <tr>
+                        <td colSpan="5" className="px-6 py-8 text-center text-gray-400">
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            <span className="text-base font-medium">Loading campaigns...</span>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">
-                            {new Date(campaign?.startDate).toLocaleDateString()} - {new Date(campaign?.endDate).toLocaleDateString()}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${campaignStatusColors["active"]}`}>
-                            {"active"}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          {campaign?.htmlContent && campaign?.subject ? (
-                            <button
-                              onClick={async () => {
-                                setIsLoading(true);
-                                try {
-                                  const response = await axios.post('https://create-campaign-af13fce1.serverless.boltic.app', {
-                                    type: 'send_email',
-                                    companyId: campaign?.companyId,
-                                    campaignId: campaign?.campaignId,
-                                  }, {
-                                    headers: { 'Content-Type': 'application/json' }
-                                  });
-                                  if (response.data.success) {
-                                    toast.success('Email sent successfully!');
-                                  } else {
-                                    throw new Error(response.data.message || 'Failed to send email');
-                                  }
-                                } catch (error) {
-                                  toast.error(`Error sending email: ${error.message}`);
-                                } finally {
-                                  setIsLoading(false);
-                                }
-                              }}
-                              className="text-blue-600 hover:text-blue-900 cursor-pointer mr-4"
-                              disabled={isLoading}
-                            >
-                              Send Email
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                setSelectedCampaign(campaign);
-                                setShowEmailTemplate(true);
-                                setCurrentStep(2);
-                              }}
-                              className="text-blue-600 hover:text-blue-900 cursor-pointer mr-4"
-                            >
-                              Add Email Template
-                            </button>
-                          )}
                         </td>
                       </tr>
-                    ))
-                  )}
-                  {!isCampaignsLoading && filteredAndSortedCampaigns.length === 0 && (
-                    <tr>
-                      <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
-                        No campaigns found
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Create Campaign Button */}
-          <div className="mt-6">
-            <button
-              onClick={() => setShowCreateCampaign(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
-            >
-              Create Campaign
-            </button>
-          </div>
-
-          {/* Email Template Modal */}
-          {showEmailTemplate && selectedCampaign && (
-            <div className="fixed inset-0 bg-[#cbdaf561] bg-opacity-25 flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-lg max-w-4xl h-[90%] overflow-y-auto w-full">
-                <div className="p-6">
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold">Email Template</h2>
-                    <button
-                      onClick={() => {
-                        setShowEmailTemplate(false);
-                        setSelectedCampaign(null);
-                      }}
-                      className="text-gray-500 hover:text-gray-700"
-                    >
-                      ×
-                    </button>
-                  </div>
-                  <FormProvider {...emailTemplateMethods}>
-                    <EmailTemplateForm
-                      setCurrentStep={setCurrentStep}
-                      setShowCreateCampaign={setShowEmailTemplate}
-                      campaignId={selectedCampaign?.campaignId}
-                      companyId={company_id}
-                      campaign={selectedCampaign}
-                    />
-                  </FormProvider>
-                </div>
+                    ) : (
+                      filteredAndSortedCampaigns.map((campaign) => (
+                        <tr key={campaign?._id} className="hover:bg-blue-50/60 transition-all">
+                          <td className="px-6 py-4 whitespace-nowrap text-gray-900 font-semibold text-sm">
+                            {campaign?.name || ""}
+                          </td>
+                          <td className="px-6 py-4 text-gray-700 text-sm">
+                            {campaign?.type === 'PRODUCT_EXCLUSIVITY' ? 'Product Exclusivity' :
+                              campaign?.type === 'CUSTOM_PROMOTIONS' ? 'Custom Promotions' :
+                              campaign?.type === 'PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS' ? 'Product Exclusivity & Custom Promotions' :
+                              'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-gray-600 text-sm">
+                            {new Date(campaign?.startDate).toLocaleDateString()} - {new Date(campaign?.endDate).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-3 py-1 text-xs font-semibold rounded-full ${campaignStatusColors["active"]} bg-blue-100 text-blue-700`}>
+                              active
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {campaign?.htmlContent && campaign?.subject ? (
+                              <button
+                                onClick={async () => {
+                                  setIsLoading(true);
+                                  try {
+                                    const response = await axios.post('https://create-campaign-af13fce1.serverless.boltic.app', {
+                                      type: 'send_email',
+                                      companyId: campaign?.companyId,
+                                      campaignId: campaign?.campaignId,
+                                    }, {
+                                      headers: { 'Content-Type': 'application/json' }
+                                    });
+                                    if (response.data.success) {
+                                      toast.success('Email sent successfully!');
+                                    } else {
+                                      throw new Error(response.data.message || 'Failed to send email');
+                                    }
+                                  } catch (error) {
+                                    toast.error(`Error sending email: ${error.message}`);
+                                  } finally {
+                                    setIsLoading(false);
+                                  }
+                                }}
+                                className="text-blue-600 hover:text-blue-900 cursor-pointer mr-4 transition-colors"
+                                disabled={isLoading}
+                              >
+                                Send Email
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setSelectedCampaign(campaign);
+                                  setShowEmailTemplate(true);
+                                  setCurrentStep(2);
+                                }}
+                                className="text-indigo-600 hover:text-indigo-900 cursor-pointer mr-4 transition-colors"
+                              >
+                                Add Email Template
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                    {!isCampaignsLoading && filteredAndSortedCampaigns.length === 0 && (
+                      <tr>
+                        <td colSpan="5" className="px-6 py-16 text-center text-gray-400 bg-gradient-to-r from-blue-50 to-indigo-50">
+                          <div className="flex flex-col items-center gap-3">
+                            <svg className="w-12 h-12 text-blue-200 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2a4 4 0 014-4h3m4 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                            </svg>
+                            <span className="text-lg font-semibold">No campaigns found</span>
+                            <span className="text-sm text-gray-500">Try adjusting your search or filters.</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
-          )}
-        </div>
-      )}
 
-      {/* Customer Selection Modal */}
-      <CustomerSelectionModal
-        showModal={showCustomerModal}
-        onClose={() => setShowCustomerModal(false)}
-        selectedCustomers={selectedCustomers}
-        onCustomerSelect={handleIndividualCustomerSelect}
-        onSelectAllCustomers={() => handleSelectAllCustomers(filteredAndSortedCustomers.map(c => c.id))}
-        customers={filteredAndSortedCustomers}
-        customerSearchTerm={customerSearchTerm}
-        setCustomerSearchTerm={setCustomerSearchTerm}
-        customerSortField={customerSortField}
-        setCustomerSortField={setCustomerSortField}
-        customerSortDirection={customerSortDirection}
-        setCustomerSortDirection={setCustomerSortDirection}
-        customerFilterVip={customerFilterVip}
-        setCustomerFilterVip={setCustomerFilterVip}
-      />
+            {/* Email Template Modal */}
+            {showEmailTemplate && selectedCampaign && (
+              <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-2xl max-w-4xl w-full h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-gray-100">
+                  <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-2xl font-bold text-gray-900">Email Template</h2>
+                      <button
+                        onClick={() => {
+                          setShowEmailTemplate(false);
+                          setSelectedCampaign(null);
+                        }}
+                        className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all duration-200"
+                      >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-6 bg-white">
+                    <FormProvider {...emailTemplateMethods}>
+                      <EmailTemplateForm
+                        setCurrentStep={setCurrentStep}
+                        setShowCreateCampaign={setShowEmailTemplate}
+                        campaignId={selectedCampaign?.campaignId}
+                        companyId={company_id}
+                        campaign={selectedCampaign}
+                      />
+                    </FormProvider>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
-      {/* Product Selection Modal */}
-      <ProductSelectionModal
-        showModal={showProductModal}
-        onClose={() => setShowProductModal(false)}
-        selectedProducts={selectedProducts}
-        onProductSelect={handleIndividualProductSelect}
-        onSelectAllProducts={() => handleSelectAllProducts(filteredAndSortedProducts)}
-        products={filteredAndSortedProducts}
-        isLoading={isLoading}
-        productSearchTerm={productSearchTerm}
-        setProductSearchTerm={setProductSearchTerm}
-        productSortField={productSortField}
-        setProductSortField={setProductSortField}
-        productSortDirection={productSortDirection}
-        setProductSortDirection={setProductSortDirection}
-      />
+        {/* Customer Selection Modal */}
+        <CustomerSelectionModal
+          showModal={showCustomerModal}
+          onClose={() => setShowCustomerModal(false)}
+          selectedCustomers={selectedCustomers}
+          onCustomerSelect={handleIndividualCustomerSelect}
+          onSelectAllCustomers={() => handleSelectAllCustomers(filteredAndSortedCustomers.map(c => c.id))}
+          customers={filteredAndSortedCustomers}
+          customerSearchTerm={customerSearchTerm}
+          setCustomerSearchTerm={setCustomerSearchTerm}
+          customerSortField={customerSortField}
+          setCustomerSortField={setCustomerSortField}
+          customerSortDirection={customerSortDirection}
+          setCustomerSortDirection={setCustomerSortDirection}
+          customerFilterVip={customerFilterVip}
+          setCustomerFilterVip={setCustomerFilterVip}
+        />
+
+        {/* Product Selection Modal */}
+        <ProductSelectionModal
+          showModal={showProductModal}
+          onClose={() => setShowProductModal(false)}
+          selectedProducts={selectedProducts}
+          onProductSelect={handleIndividualProductSelect}
+          onSelectAllProducts={() => handleSelectAllProducts(filteredAndSortedProducts)}
+          products={filteredAndSortedProducts}
+          isLoading={productsLoading}
+          company_id={company_id}
+          application_id={application_id}
+        />
+      </div>
     </div>
   );
 };

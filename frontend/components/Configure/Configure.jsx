@@ -1,112 +1,98 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { useParams } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import VipProducts from "./VipProducts";
 import Benefits from "./Benefits";
+import { fetchConfig } from "../../src/features/config/configSlice";
 
 const Configure = () => {
   const { company_id } = useParams();
-  const [loading, setLoading] = useState(true);
-  const [config, setConfig] = useState(null);
+  const dispatch = useDispatch();
+  const { data: config, loading, error, lastFetched } = useSelector((state) => state.config);
 
   // Active Tab State
   const [activeTab, setActiveTab] = useState("plans");
 
-  const fetchConfig = async () => {
-    setLoading(true);
-    try {
-      const response = await axios.get(
-        `${
-          import.meta.env.VITE_FETCH_BACKEND_URL
-        }?module=configs&companyId=${company_id}&queryType=scan`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.data.success && response.data.data.length > 0) {
-        const configData = response.data.data[0];
-        setConfig(configData);
-      }
-    } catch (error) {
-      console.error("Error fetching configuration:", error);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    // Only fetch if we don't have data or if it's stale (older than 5 minutes)
+    const shouldFetch = !config || !lastFetched || (Date.now() - new Date(lastFetched).getTime() > 5 * 60 * 1000);
+    if (shouldFetch) {
+      dispatch(fetchConfig(company_id));
     }
-  };
+  }, [company_id, dispatch, config, lastFetched]);
 
   useEffect(() => {
-    fetchConfig();
-  }, [company_id]);
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="!text-2xl font-bold text-gray-900">
-          Configure VIP Extension
-        </h1>
-        <p className="mt-2 text-gray-600 !text-base">
-          Manage your access configuration, VIP products, and Plans
-        </p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-white py-8 px-2">
+      <div className="max-w-5xl mx-auto">
+        {/* Header */}
+        <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="w-full text-center md:text-left">
+            <h1 className="!text-3xl font-extrabold text-gray-900 mb-1 tracking-tight">Configure VIP Extension</h1>
+            <p className="text-gray-500 !text-base">Manage your access configuration, VIP products, and Plans</p>
+          </div>
+        </div>
 
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200 mb-6">
-        <nav className="-mb-px flex space-x-8">
-          {" "}
-          <button
-            onClick={() => setActiveTab("plans")}
-            className={`${
-              activeTab === "plans"
-                ? "border-blue-500 text-blue-600 cursor-pointer"
-                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-            } whitespace-nowrap py-4 px-1  cursor-pointer border-b-2 font-medium text-sm`}
-          >
-            Plans
-          </button>
-          <button
-            onClick={() => setActiveTab("vip")}
-            className={`${
-              activeTab === "vip"
-                ? "border-blue-500 text-blue-600 cursor-pointer"
-                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-            } whitespace-nowrap hover:cursor-pointer py-4 px-1 border-b-2 font-medium text-sm`}
-          >
-            VIP Products
-          </button>
-        </nav>
-      </div>
+        {/* Card Container */}
+        <div className="bg-white/90 rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+          {/* Tab Navigation */}
+          <div className="border-b border-gray-100 bg-white/80 px-6 pt-6">
+            <nav className="flex space-x-8">
+              <button
+                onClick={() => setActiveTab('plans')}
+                className={`whitespace-nowrap py-4 px-1 border-b-2 font-semibold text-base transition-all duration-200 ${
+                  activeTab === 'plans'
+                    ? 'border-blue-600 text-blue-700'
+                    : 'border-transparent text-gray-500 hover:text-blue-600 hover:border-blue-300'
+                }`}
+              >
+                Plans
+              </button>
+              <button
+                onClick={() => setActiveTab('vip')}
+                className={`whitespace-nowrap py-4 px-1 border-b-2 font-semibold text-base transition-all duration-200 ${
+                  activeTab === 'vip'
+                    ? 'border-blue-600 text-blue-700'
+                    : 'border-transparent text-gray-500 hover:text-blue-600 hover:border-blue-300'
+                }`}
+              >
+                VIP Products
+              </button>
+            </nav>
+          </div>
 
-      {/* Tab Content */}
-      <div className="mt-6">
-        {" "}
-        {activeTab === "plans" && (
-          <Benefits
-            initialPlans={config?.benefits || []}
-            applicationIds={config?.applicationIds || []}
-          />
-        )}
-        {activeTab === "vip" && (
-          <VipProducts
-            initialProducts={config?.vipProducts || []}
-            setActiveTab={setActiveTab}
-            disabled={config?.vipProducts?.length > 0}
-            config={config}
-          />
-        )}{" "}
+          {/* Tab Content */}
+          <div className="mt-6 px-6 pb-8">
+            {activeTab === 'plans' && (
+              <Benefits
+                initialPlans={config?.benefits || []}
+                applicationIds={config?.applicationIds || []}
+              />
+            )}
+            {activeTab === 'vip' && (
+              <VipProducts
+                initialProducts={config?.vipProducts || []}
+                setActiveTab={setActiveTab}
+                disabled={config?.vipProducts?.length > 0}
+                config={config}
+              />
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

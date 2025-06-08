@@ -238,70 +238,50 @@ const EmailTemplateForm = ({
   const isButtonDisabled = isGenerating || generationCount >= 3;
 
   return (
-    <form className="space-y-6">
+    <form className="space-y-8">
       {/* Email Subject */}
       <div>
-        <label
-          htmlFor="emailSubject"
-          className="block text-sm font-medium text-gray-700 mb-1"
-        >
-          Email Subject
-        </label>
+        <label htmlFor="emailSubject" className="block text-sm font-semibold text-gray-700 mb-1">Email Subject</label>
         <input
           type="text"
           id="emailSubject"
           {...register("emailTemplate.subject")}
-          className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+          className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base shadow-sm"
           placeholder={defaultSubject}
           value={watch("emailTemplate.subject") || defaultSubject}
           onChange={(e) => setValue("emailTemplate.subject", e.target.value)}
         />
         {errors.emailTemplate?.subject && (
-          <p className="mt-2 text-sm text-red-600">
-            {errors.emailTemplate.subject.message}
-          </p>
+          <p className="mt-2 !text-sm text-red-600">{errors.emailTemplate.subject.message}</p>
         )}
       </div>
       {/* Email Prompt */}
       <div>
-        <label
-          htmlFor="emailPrompt"
-          className="block text-sm font-medium text-gray-700 mb-1"
-        >
-          Email Prompt
-        </label>
+        <label htmlFor="emailPrompt" className="block text-sm font-semibold text-gray-700 mb-1">Email Prompt</label>
         <textarea
           id="emailPrompt"
-          {...register("emailTemplate.prompt", {
-            required: "Prompt is required",
-          })}
-          className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+          {...register("emailTemplate.prompt", { required: "Prompt is required" })}
+          className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base shadow-sm"
           rows={4}
           value={watch("emailTemplate.prompt") || ""}
           onChange={(e) => setValue("emailTemplate.prompt", e.target.value)}
         />
         {errors.emailTemplate?.prompt && (
-          <p className="mt-2 text-sm text-red-600">
-            {errors.emailTemplate.prompt.message}
-          </p>
+          <p className="mt-2 !text-sm text-red-600">{errors.emailTemplate.prompt.message}</p>
         )}
       </div>
       {/* Email Content Editor & Preview */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Email Content (HTML)
-        </label>
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-1">Email Content (HTML)</label>
         <textarea
-          className="w-full min-h-[200px] border rounded p-2 font-mono"
+          className="w-full min-h-[200px] border rounded-lg p-3 font-mono text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           value={watch("emailTemplate.content") || ""}
           onChange={e => setValue("emailTemplate.content", e.target.value)}
         />
       </div>
       <div>
-        <h3 className="text-lg font-semibold text-gray-800 mb-3">
-          Email Preview
-        </h3>
-        <div className="border border-gray-200 rounded-md p-4 bg-gray-50 shadow-inner overflow-x-auto min-h-[200px]">
+        <h3 className="text-lg font-bold text-gray-800 mb-3">Email Preview</h3>
+        <div className="border border-gray-200 rounded-xl p-6 bg-gray-50 shadow-inner overflow-x-auto min-h-[200px]">
           {watch("emailTemplate.content") ? (
             <div
               dangerouslySetInnerHTML={{ __html: watch("emailTemplate.content") }}
@@ -325,9 +305,7 @@ const EmailTemplateForm = ({
               }}
             ></div>
           ) : (
-            <p className="text-gray-500">
-              Please enter email content above to see the preview.
-            </p>
+            <p className="text-gray-500">Please enter email content above to see the preview.</p>
           )}
         </div>
       </div>
@@ -336,26 +314,18 @@ const EmailTemplateForm = ({
         <button
           type="button"
           onClick={handleRegenerate}
-          className={`px-4 py-2 bg-indigo-500 text-white rounded-md transition duration-150 ease-in-out shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
-            isButtonDisabled
-              ? "opacity-50 cursor-not-allowed"
-              : "hover:bg-indigo-600"
+          className={`px-5 py-3 bg-gradient-to-r from-indigo-500 to-blue-500 text-white rounded-lg transition duration-150 ease-in-out shadow-lg text-base font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+            isButtonDisabled ? "opacity-50 cursor-not-allowed" : "hover:from-indigo-600 hover:to-blue-600"
           }`}
           disabled={isButtonDisabled}
         >
           {isGenerating ? "Generating..." : buttonText}
         </button>
         {generationCount > 0 && generationCount < 3 && (
-          <span className="ml-4 text-sm text-gray-600">{`(${
-            3 - generationCount
-          } ${
-            3 - generationCount === 1 ? "attempt" : "attempts"
-          } remaining)`}</span>
+          <span className="ml-4 text-sm text-gray-600">{`(${3 - generationCount} ${3 - generationCount === 1 ? "attempt" : "attempts"} remaining)`}</span>
         )}
         {generationCount >= 3 && (
-          <span className="ml-4 text-sm text-red-600">
-            Maximum generation attempts reached.
-          </span>
+          <span className="ml-4 text-sm text-red-600">Maximum generation attempts reached.</span>
         )}
       </div>
       {/* Navigation Buttons */}
@@ -363,7 +333,7 @@ const EmailTemplateForm = ({
         <button
           type="button"
           onClick={() => setCurrentStep(1)}
-          className="px-6 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-100 transition duration-150 ease-in-out shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+          className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition duration-150 ease-in-out shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
         >
           Back
         </button>
@@ -371,7 +341,7 @@ const EmailTemplateForm = ({
           type="button"
           onClick={() => handleScheduleEmail(true)}
           name="send"
-          className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition duration-150 ease-in-out shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+          className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition duration-150 ease-in-out shadow-lg font-semibold focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
         >
           Send Email
         </button>
