@@ -5,6 +5,7 @@ import { useGlobalStore, useFPI } from "fdk-core/utils";
 export function Component({ props }) {
  console.log(": VIP PLP Protection Component 2");
  const fpi = useFPI();
+   const state = fpi.store.getState();
  const [campaignData, setCampaignData] = useState(null);
  const [userValidation, setUserValidation] = useState(null);
  const [loading, setLoading] = useState(true);
@@ -20,11 +21,8 @@ export function Component({ props }) {
  const pageDetails = useGlobalStore(fpi.getters.PAGE);
  const productsListData = useGlobalStore(fpi?.getters?.PRODUCTS);
 
- // Static IDs as requested
-//  const COMPANY_ID = "10253";
-//  const APPLICATION_ID = "6828309ae4f8062f0c847089";
- const USER_ID = "683817d98fbf32007a149c91";
-
+ // Get user ID dynamically
+ const USER_ID = useGlobalStore(fpi.getters.USER_DATA)?.user_id || "683817d98fbf32007a149c91";
  console.log("pageDetails", pageDetails);
  console.log("productsListData>>>", productsListData);
 
@@ -57,7 +55,7 @@ export function Component({ props }) {
  const validateVIPUser = async () => {
    try {
      const response = await fetch(
-       `https://fetch-db-data-d9ca324b.serverless.boltic.app?module=users&companyId=${COMPANY_ID}&queryType=validate&id=${USER_ID}&applicationId=6838178d9fdd289461be895e`,
+       `https://fetch-db-data-d9ca324b.serverless.boltic.app?module=users&companyId=${COMPANY_ID}&queryType=validate&id=${USER_ID}&applicationId=${APPLICATION_ID}`,
        {
          method: "GET",
          headers: {
@@ -287,7 +285,8 @@ export function Component({ props }) {
  const setupMutationObserver = (campaignProductCodes, isVipUser) => {
    console.log("Setting up mutation observer...");
   
-   const container = document.querySelector('.product-listing__productContainer___oyoni');
+  //  const container = document.querySelector('.product-listing__productContainer___oyoni');
+  const container = document.getElementById('fixed-plp-id')
    if (!container) {
      console.log("Container not found for mutation observer");
      return null;
@@ -390,13 +389,13 @@ export function Component({ props }) {
 
            // Step 3: Create campaign product codes set
            // For testing - using hardcoded data
-           const campaignProducts = [
-             { item_code: "marv5rue_KD" },
-             // Add more products from activeCampaign.products when available
-           ];
+          //  const campaignProducts = [
+          //    { item_code: "marv5rue_KD" },
+          //    // Add more products from activeCampaign.products when available
+          //  ];
 
            const campaignProductCodes = new Set(
-             campaignProducts.map((product) => product.item_code?.toLowerCase())
+             activeCampaign.products.map((product) => product.item_code?.toLowerCase())
            );
 
            console.log("Campaign product codes:", campaignProductCodes);
@@ -456,12 +455,10 @@ export function Component({ props }) {
  // Re-process when products data changes (infinite scroll, filters, etc.)
  useEffect(() => {
    if (campaignData && userValidation !== undefined) {
-     const campaignProducts = [
-       { item_code: "marv5rue_KD" },
-     ];
+    
 
      const campaignProductCodes = new Set(
-       campaignProducts.map((product) => product.item_code?.toLowerCase())
+       activeCampaign[0].products.map((product) => product.item_code?.toLowerCase())
      );
 
      const isVipUser = userValidation !== null;

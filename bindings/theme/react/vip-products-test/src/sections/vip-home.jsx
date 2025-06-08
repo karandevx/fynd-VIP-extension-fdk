@@ -58,6 +58,7 @@ const isRunningOnClient = () => {
 
 export function Component({ props, globalConfig }) {
   const fpi = useFPI();
+    const state = fpi.store.getState();
   const platformData = useGlobalStore(fpi.getters.PLATFORM_DATA);
   console.log("platformData", platformData);
   const isLoggedIn = useGlobalStore(fpi.getters.LOGGED_IN);
@@ -69,9 +70,9 @@ export function Component({ props, globalConfig }) {
   const [isVipUser, setIsVipUser] = useState(false);
   const [isLoadingVipStatus, setIsLoadingVipStatus] = useState(false);
 
-  // Static IDs for Boltics API (same as validation component)
-  const COMPANY_ID = "10253";
-  const USER_ID = "682c158a3d88c46a01efac53"; // You might want to get this dynamically from user data
+  const COMPANY_ID = fpi.getters.THEME(state)?.company_id || "10253";
+  const APPLICATION_ID = fpi.getters.THEME(state)?.application_id;
+  const USER_ID = useGlobalStore(fpi.getters.USER_DATA)?.user_id || "682c158a3d88c46a01efac53";
 
   const {
     image_desktop_non_vip,
@@ -86,7 +87,7 @@ export function Component({ props, globalConfig }) {
   const validateVIPUser = async (userId = USER_ID) => {
     try {
       const response = await fetch(
-        `https://fetch-db-data-d9ca324b.serverless.boltic.app?module=users&companyId=${COMPANY_ID}&queryType=validate&id=${userId}`,
+        `https://fetch-db-data-d9ca324b.serverless.boltic.app?module=users&companyId=${COMPANY_ID}&queryType=validate&id=${userId}&applicationId=${APPLICATION_ID}`,
         {
           method: "GET",
           headers: {

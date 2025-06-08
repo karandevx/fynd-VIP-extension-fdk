@@ -587,6 +587,7 @@ export function Component({ props }) {
   console.log(": drafting 8 in product validation page.");
   const fpi = useFPI();
   const navigate = useNavigate();
+    const state = fpi.store.getState();
   // const { alert } = useSnackbar();
   const [campaignData, setCampaignData] = useState(null);
   const [userValidation, setUserValidation] = useState(null);
@@ -598,10 +599,11 @@ export function Component({ props }) {
   const CART_ITEMS = useGlobalStore(fpi.getters.CART);
   const PRODUCT = useGlobalStore(fpi.getters.PRODUCT);
   console.log("PRODUCT", PRODUCT);
-  // Static IDs as requested
-  const COMPANY_ID = "10253";
-  const APPLICATION_ID = "6828309ae4f8062f0c847089";
-  const USER_ID = "683817d98fbf32007a149c91";
+
+  // Get dynamic IDs from platform data
+  const COMPANY_ID = fpi.getters.THEME(state)?.company_id || "10253";
+  const APPLICATION_ID = fpi.getters.THEME(state)?.application_id || "6828309ae4f8062f0c847089";
+  const USER_ID = useGlobalStore(fpi.getters.USER_DATA)?.user_id || "683817d98fbf32007a149c91";
 
   console.log("pageDetails", pageDetails);
   console.log("using fpi in vip validations", fpi);
@@ -741,15 +743,11 @@ export function Component({ props }) {
 
     const cartItems = CART_ITEMS.cart_items.items;
     // const campaignProducts = activeCampaign.products;
-    const campaignProducts = [
-      {
-        item_code: "marv5rue_KD",
-      },
-    ];
+    
     console.log("activeCampaign", activeCampaign);
     // Create a set of campaign product codes for quick lookup
     const campaignProductCodes = new Set(
-      campaignProducts.map((product) => product.item_code?.toLowerCase())
+      activeCampaign.products.map((product) => product.item_code?.toLowerCase())
     );
 
     console.log("Campaign product codes:", campaignProductCodes);

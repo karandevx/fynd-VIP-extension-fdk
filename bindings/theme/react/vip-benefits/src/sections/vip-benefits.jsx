@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useGlobalStore, useFPI } from "fdk-core/utils";
-import { Helmet } from "react-helmet-async";
-import "../styles/style.css";
+// import { Helmet } from "react-helmet-async";
 
+import styles from "../styles/style.css";
 // VIP Feature Types Enum
 const VIP_FEATURE_TYPES = {
   FLASH_SALE: "FLASH_SALE",
@@ -26,12 +26,25 @@ const VIP_FEATURE_FALLBACK_ICONS = {
   [VIP_FEATURE_TYPES.ASK_FOR_INVENTORY]: "📦",
 };
 
+// Default images for benefits if not provided
+const DEFAULT_BENEFIT_IMAGES = {
+  [VIP_FEATURE_TYPES.FLASH_SALE]:
+    "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=200&fit=crop",
+  [VIP_FEATURE_TYPES.CUSTOM_PROMOTIONS]:
+    "https://images.unsplash.com/photo-1607083206968-13611e3d76db?w=400&h=200&fit=crop",
+  [VIP_FEATURE_TYPES.FREE_DELIVERY]:
+    "https://images.unsplash.com/photo-1566576721346-d4a3b4eaeb55?w=400&h=200&fit=crop",
+  [VIP_FEATURE_TYPES.ASK_FOR_INVENTORY]:
+    "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&h=200&fit=crop",
+};
+
 // Helper function to check if running on client
 const isRunningOnClient = () => {
   return typeof window !== "undefined";
 };
 
 export function Component({ props, globalConfig }) {
+  console.log("new section");
   const fpi = useFPI();
   const state = fpi.store.getState();
 
@@ -61,15 +74,11 @@ export function Component({ props, globalConfig }) {
 
   // Get company and application IDs from platform data
   const getCompanyAndAppId = () => {
-    // You can extract these from platformData or fpi context
-    // For now using fallback values - replace with actual logic
+    const state = fpi.store.getState();
     const application_id = fpi.getters.THEME(state)?.application_id;
     const company_id = fpi.getters.THEME(state)?.company_id;
-    // const companyId = company_id || "10253";
-    // const applicationId = application_id || "6838178d9fdd289461be895e";
-
-    const companyId = "10253";
-    const applicationId = "6838178d9fdd289461be895e";
+    const companyId = company_id || "10253";
+    const applicationId = application_id || "6838178d9fdd289461be895e";
     return { companyId, applicationId };
   };
 
@@ -82,10 +91,9 @@ export function Component({ props, globalConfig }) {
       const queryParams = new URLSearchParams({
         module: "configs",
         queryType: "scan",
-        companyId: companyId
-        // applicationId: applicationId,
+        companyId: companyId,
       }).toString();
-      
+
       const response = await fetch(
         `https://fetch-db-data-d9ca324b.serverless.boltic.app?${queryParams}`,
         {
@@ -95,7 +103,6 @@ export function Component({ props, globalConfig }) {
           },
         }
       );
-      
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -106,11 +113,10 @@ export function Component({ props, globalConfig }) {
       if (result.success && result.data && result.data.length > 0) {
         const benefitsData = result.data[0].benefits || [];
         console.log("benefitsData", benefitsData);
-        // Filter only active benefits
         const activeBenefits = benefitsData.filter(
           (benefit) => benefit.isEnabled === true
         );
-        console.log("activeBenefits",activeBenefits)
+        console.log("activeBenefits", activeBenefits);
         setBenefits(activeBenefits);
       } else {
         setBenefits([]);
@@ -123,10 +129,9 @@ export function Component({ props, globalConfig }) {
     }
   };
 
-  // Check VIP status (placeholder - replace with actual logic)
+  // Check VIP status
   const checkVipStatus = async () => {
     if (isLoggedIn) {
-      // TODO: Implement actual VIP check logic
       setIsVipUser(true); // Set to true for testing
     }
   };
@@ -136,16 +141,14 @@ export function Component({ props, globalConfig }) {
   }, [isLoggedIn]);
 
   useEffect(() => {
-    // Fetch benefits for all logged-in users
     if (isLoggedIn) {
       fetchBenefits();
     }
   }, [isLoggedIn]);
 
-  // Show to all users, but don't render if not logged in
-  if (!isLoggedIn) {
-    return null;
-  }
+  //   if (!isLoggedIn) {
+  //     return null;
+  //   }
 
   // Get messaging based on VIP status
   const getHeaderText = () => {
@@ -181,12 +184,28 @@ export function Component({ props, globalConfig }) {
     }
   };
 
-  // Get icon for benefit type - use backend image or fallback emoji
-  const getBenefitIcon = (title, img) => {
-    if (img && img.trim() !== "") {
-      return img;
+  // Get icon for benefit type
+  const getBenefitIcon = (benefit) => {
+    // First check if benefit has an img property and it's not empty
+    if (benefit.img && benefit.img.trim() !== "") {
+      return benefit.img;
     }
-    return VIP_FEATURE_FALLBACK_ICONS[title] || "⭐";
+    // Fallback to predefined icons based on benefit title
+    return VIP_FEATURE_FALLBACK_ICONS[benefit.title] || "⭐";
+  };
+
+  // Get image for benefit
+  const getBenefitImage = (benefit) => {
+    // First check if benefit has an imageUrl property and it's not empty
+    if (benefit.imageUrl && benefit.imageUrl.trim() !== "") {
+      return benefit.imageUrl;
+    }
+    // Then check if benefit has an img property that could be used as image
+    if (benefit.img && benefit.img.trim() !== "") {
+      return benefit.img;
+    }
+    // Fallback to default images based on benefit title
+    return DEFAULT_BENEFIT_IMAGES[benefit.title];
   };
 
   // Get label for benefit type
@@ -196,36 +215,44 @@ export function Component({ props, globalConfig }) {
 
   // Dynamic styles based on props
   const sectionStyle = {
-    backgroundColor: section_background_color?.value || "#f8f9fa",
-    color: section_text_color?.value || "#333333",
-    padding: "40px 20px",
-    minHeight: "400px",
+    backgroundColor: section_background_color?.value || "#667eea",
+    color: section_text_color?.value || "#ffffff",
+    background:
+      section_background_color?.value ||
+      "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
   };
 
   const titleStyle = {
-    fontFamily: title_font_family?.value || "inherit",
-    fontSize: title_font_size?.value || "32px",
-    fontWeight: title_font_weight?.value || "700",
-    color: section_text_color?.value || "#333333",
+    fontFamily: title_font_family?.value || "'Inter', sans-serif",
+    fontSize: title_font_size?.value || "3.5rem",
+    fontWeight: title_font_weight?.value || "800",
+    color: section_text_color?.value || "#ffffff",
   };
 
   const descriptionStyle = {
-    fontFamily: description_font_family?.value || "inherit",
-    fontSize: description_font_size?.value || "16px",
-    color: section_text_color?.value || "#666666",
+    fontFamily: description_font_family?.value || "'Inter', sans-serif",
+    fontSize: description_font_size?.value || "1.25rem",
+    color: section_text_color?.value || "rgba(255, 255, 255, 0.9)",
   };
 
   const cardStyle = {
-    backgroundColor: card_background_color?.value || "#ffffff",
-    borderColor: card_border_color?.value || "#e0e0e0",
+    backgroundColor:
+      card_background_color?.value || "rgba(255, 255, 255, 0.95)",
+    borderColor: card_border_color?.value || "rgba(255, 255, 255, 0.2)",
   };
 
   if (loading) {
     return (
-      <div className="vip-benefits-section" style={sectionStyle}>
-        <div className="vip-benefits-container">
-          <div className="loading-spinner">
-            <div className="spinner"></div>
+      <div className={styles["vip-benefits-section"]} style={sectionStyle}>
+        <div className={styles["vip-benefits-container"]}>
+          <div className={styles["floating-elements"]}></div>
+          <div className={styles.particles}>
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className={styles.particle}></div>
+            ))}
+          </div>
+          <div className={styles["loading-spinner"]}>
+            <div className={styles.spinner}></div>
             <p>Loading your VIP benefits...</p>
           </div>
         </div>
@@ -235,9 +262,9 @@ export function Component({ props, globalConfig }) {
 
   if (error) {
     return (
-      <div className="vip-benefits-section" style={sectionStyle}>
-        <div className="vip-benefits-container">
-          <div className="error-message">
+      <div className={styles["vip-benefits-section"]} style={sectionStyle}>
+        <div className={styles["vip-benefits-container"]}>
+          <div className={styles["error-message"]}>
             <p>⚠️ {error}</p>
           </div>
         </div>
@@ -247,9 +274,10 @@ export function Component({ props, globalConfig }) {
 
   if (benefits.length === 0) {
     return (
-      <div className="vip-benefits-section" style={sectionStyle}>
-        <div className="vip-benefits-container">
-          <div className="no-benefits">
+      <div className={styles["vip-benefits-section"]} style={sectionStyle}>
+        <div className={styles["vip-benefits-container"]}>
+          <div className={styles["no-benefits"]}>
+            <div className={styles["vip-crown"]}>👑</div>
             <h3>🌟 VIP Benefits Coming Soon!</h3>
             <p>
               We're preparing amazing exclusive benefits. Please check back
@@ -263,66 +291,95 @@ export function Component({ props, globalConfig }) {
 
   return (
     <>
-      <Helmet>
-        <title>VIP Benefits - Exclusive Member Perks</title>
-        <meta
-          name="description"
-          content="Discover your exclusive VIP member benefits and perks"
-        />
-      </Helmet>
+      {/* <Helmet> */}
+      <title>VIP Benefits - Exclusive Member Perks</title>
+      <meta
+        name="description"
+        content="Discover your exclusive VIP member benefits and perks"
+      />
+      {/* </Helmet> */}
 
-      <div className="vip-benefits-section" style={sectionStyle}>
-        <div className="vip-benefits-container">
-          <div className="vip-benefits-header">
-            <h2 className="vip-benefits-title" style={titleStyle}>
+      <div className={styles["vip-benefits-section"]} style={sectionStyle}>
+        <div className={styles["vip-benefits-container"]}>
+          <div className={styles["floating-elements"]}></div>
+          <div className={styles.particles}>
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className={styles.particle}></div>
+            ))}
+          </div>
+
+          <div className={styles["vip-benefits-header"]}>
+            <div className={styles["vip-crown"]}>👑</div>
+            <h2 className={styles["vip-benefits-title"]} style={titleStyle}>
               {getHeaderText().title}
             </h2>
-            <p className="vip-benefits-subtitle" style={descriptionStyle}>
+            <p
+              className={styles["vip-benefits-subtitle"]}
+              style={descriptionStyle}
+            >
               {getHeaderText().subtitle}
             </p>
           </div>
 
-          <div className="vip-benefits-grid">
-            {benefits.map((benefit, index) => (
-              <div key={index} className="vip-benefit-card" style={cardStyle}>
-                <div className="benefit-icon">
-                  {getBenefitIcon(benefit.title, benefit.img) ? (
-                    typeof getBenefitIcon(benefit.title, benefit.img) ===
-                      "string" &&
-                    getBenefitIcon(benefit.title, benefit.img).startsWith(
-                      "http"
-                    ) ? (
+          <div className={styles["vip-benefits-grid"]}>
+            {benefits.slice(0, 3).map((benefit, index) => (
+              <div
+                key={index}
+                className={styles["vip-benefit-card"]}
+                style={cardStyle}
+              >
+                <div
+                  className={`${styles["benefit-icon"]} ${styles[`benefit-icon-${index + 1}`]}`}
+                >
+                  {getBenefitIcon(benefit) ? (
+                    typeof getBenefitIcon(benefit) === "string" &&
+                    getBenefitIcon(benefit).startsWith("http") ? (
                       <img
-                        src={getBenefitIcon(benefit.title, benefit.img)}
+                        src={getBenefitIcon(benefit)}
                         alt={getBenefitLabel(benefit.title)}
-                        className="benefit-icon-image"
+                        className={styles["benefit-icon-image"]}
                       />
                     ) : (
-                      <span className="benefit-icon-emoji">
-                        {getBenefitIcon(benefit.title, benefit.img)}
+                      <span className={styles["benefit-icon-emoji"]}>
+                        {getBenefitIcon(benefit)}
                       </span>
                     )
                   ) : (
-                    <span className="benefit-icon-emoji">⭐</span>
+                    <span className={styles["benefit-icon-emoji"]}>⭐</span>
                   )}
                 </div>
 
-                <div className="benefit-content">
-                  <h3 className="benefit-title" style={titleStyle}>
+                <div className={styles["benefit-content"]}>
+                  <h3 className={styles["benefit-title"]} style={titleStyle}>
                     {getBenefitLabel(benefit.title)}
                   </h3>
 
-                  <p className="benefit-description" style={descriptionStyle}>
+                  <div className={styles["benefit-image"]}>
+                    <img
+                      src={getBenefitImage(benefit)}
+                      alt={getBenefitLabel(benefit.title)}
+                      onError={(e) => {
+                        e.target.src =
+                          DEFAULT_BENEFIT_IMAGES[benefit.title] ||
+                          "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&h=200&fit=crop";
+                      }}
+                    />
+                  </div>
+
+                  <p
+                    className={styles["benefit-description"]}
+                    style={descriptionStyle}
+                  >
                     {benefit.description}
                   </p>
                 </div>
 
-                <div className="benefit-status">
-                  <span
-                    className={`status-badge ${getStatusBadge().className}`}
+                <div className={styles["benefit-status"]}>
+                  <button
+                    className={`${styles["status-badge"]} ${styles[getStatusBadge().className]}`}
                   >
                     {getStatusBadge().text}
-                  </span>
+                  </button>
                 </div>
               </div>
             ))}
@@ -334,8 +391,7 @@ export function Component({ props, globalConfig }) {
 }
 
 export const settings = {
-  label: "VIP Benefits",
-  name: "vip-benefits",
+  label: "Enhanced VIP Benefits",
   props: [
     {
       id: "section_title",
@@ -355,56 +411,56 @@ export const settings = {
       id: "section_background_color",
       label: "Section Background Color",
       type: "color",
-      default: "#f8f9fa",
+      default: "#667eea",
       info: "Background color for the entire section",
     },
     {
       id: "section_text_color",
       label: "Section Text Color",
       type: "color",
-      default: "#333333",
+      default: "#ffffff",
       info: "Primary text color for the section",
     },
     {
       id: "card_background_color",
       label: "Card Background Color",
       type: "color",
-      default: "#ffffff",
+      default: "rgba(255, 255, 255, 0.95)",
       info: "Background color for benefit cards",
     },
     {
       id: "card_border_color",
       label: "Card Border Color",
       type: "color",
-      default: "#e0e0e0",
+      default: "rgba(255, 255, 255, 0.2)",
       info: "Border color for benefit cards",
     },
     {
       id: "title_font_family",
       label: "Title Font Family",
       type: "font",
-      default: "inherit",
-      info: "Font family for titles (e.g., 'Arial, sans-serif')",
+      default: "'Inter', sans-serif",
+      info: "Font family for titles",
     },
     {
       id: "description_font_family",
       label: "Description Font Family",
       type: "font",
-      default: "inherit",
+      default: "'Inter', sans-serif",
       info: "Font family for descriptions",
     },
     {
       id: "title_font_size",
       label: "Title Font Size",
       type: "text",
-      default: "24px",
+      default: "1.5rem",
       info: "Font size for benefit titles",
     },
     {
       id: "description_font_size",
       label: "Description Font Size",
       type: "text",
-      default: "16px",
+      default: "1rem",
       info: "Font size for benefit descriptions",
     },
     {
