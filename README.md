@@ -1,68 +1,134 @@
+# VIP Program Extension
 
-# Build a Fynd Extension using Node.js + React.js
-![NodeJS](https://img.shields.io/badge/node.js-6DA55F?style=for-the-badge&logo=node.js&logoColor=white)
-![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
+A Fynd Platform extension for managing VIP programs, including product exclusivity, custom promotions, and user management.
 
-[![Coverage Status][coveralls-badge]]([coveralls-url])
+## Project Structure
 
-This project outlines the development process for a Fynd extension that displays product listings for a company and its associated applications. By following this guide, you'll be able to set up the development environment, build the extension locally, and understand the testing procedures.
-
-## Quick start
-### Prerequisites
-* You have installed globally [Node 18.X.X](https://docs.npmjs.com/) or above version.
-* You have fdk-cli installed [install](https://github.com/gofynd/fdk-cli)
-* You have created a [partner account](https://partners.fynd.com).
-* You have created a [development account](https://partners.fynd.com/help/docs/partners/testing-extension/development-acc#create-development-account) and [populated test data](https://partners.fynd.com/help/docs/partners/testing-extension/development-acc#populate-test-data) in it.
-
-## Install Template Locally
-To initialize your extension template locally, run the following command:
-```shell
-fdk extension init --template node-react
 ```
-Enter your preferred extension name and type, and you are all set.
-
-## Local Development
-To start local development, execute the following command:
-```shell
-fdk extension preview
+src/
+├── config/             # Configuration files
+│   ├── database.js     # Database configuration
+│   └── fdk.js         # FDK extension configuration
+├── controllers/        # Route controllers
+├── middleware/         # Custom middleware
+├── models/            # Data models
+├── routes/            # Route handlers
+│   ├── productRoutes.js
+│   ├── salesChannelRoutes.js
+│   ├── pixelbinRoutes.js
+│   └── promotionRoutes.js
+├── services/          # Business logic
+│   ├── sessionService.js
+│   └── shipmentService.js
+├── utils/             # Utility functions
+│   └── helpers.js
+└── server.js          # Main application file
 ```
-This command will provide a partner’s panel URL where you can interact with your extension. For more information, please read this [guide](https://github.com/gofynd/fdk-cli?tab=readme-ov-file#extension-commands).
 
-## Docker Instructions
+## Features
 
-To run the application using Docker in Production environment, follow these steps:
-* Build the Docker image:
-    ```shell
-    docker build -t extension .
-    ```
-* Run the Docker container
-  ```
-  docker run -p 8080:8080 extension 
-  ```
+- VIP product management
+- Custom promotions for VIP users
+- User group management
+- Campaign creation and management
+- File upload to Pixelbin
+- Automatic VIP status cleanup
 
-To Run the extension with Docker locally, ensure you first prepare your environment:
+## Prerequisites
 
-- Copy the .env.example file and rename it to .env at the root of your project.
-- Fill in all the required values in the .env file.
+- Node.js (v14 or higher)
+- MongoDB
+- SQLite3
+- Fynd Platform account
 
-After setting up your .env file, you can proceed with the Docker commands listed above to build and run your extension locally. 
+## Environment Variables
 
-## Database Configuration
+Create a `.env` file in the root directory with the following variables:
 
-By default, this template uses an `SQLite` database to store session data. SQLite is sufficient for development purpose only, it may not be suitable for all production scenarios. The best database for your application depends on your data requirements and query patterns.
+```env
+EXTENSION_API_KEY=your_extension_api_key
+EXTENSION_API_SECRET=your_extension_api_secret
+EXTENSION_BASE_URL=your_extension_base_url
+FP_API_DOMAIN=your_fp_api_domain
+PIXELBIN_API_SECRET=your_pixelbin_api_secret
+MONGO_URI=your_mongodb_connection_string
+```
 
-If your app requires a more robust database solution, you can easily extend the base storage class provided by the `fdk-extension-javascript` library to use a database of your choice for session data. Here are some databases that we support by default:
+## Installation
 
-- SQLite
-- Memory Storage
-- Redis
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd vip-program-extension
+```
 
-Feel free to configure and run your preferred database on your server to meet your specific needs.
+2. Install dependencies:
+```bash
+npm install
+```
 
-## Tech Stack
-1. [fdk-client-javascript](https://github.com/gofynd/fdk-client-javascript): This library contains all the methods to call Fynd platform APIs.
-2. [fdk-extension-javascript](https://github.com/gofynd/fdk-extension-javascript): This library streamlines the setup of authentication for accessing Fynd Platform APIs. It also simplifies the process of subscribing to webhooks for receiving real-time notifications.
+3. Start the development server:
+```bash
+npm run dev
+```
 
+## API Endpoints
 
-[coveralls-badge]: https://coveralls.io/repos/github/gofynd/example-extension-javascript-react/badge.svg?branch=main&&kill_cache=1
-[coveralls-url]: https://coveralls.io/github/gofynd/example-extension-javascript-react?branch=main
+### Products
+- `GET /api/products` - Get all products
+- `GET /api/products/vip-products` - Get VIP products
+- `POST /api/products/vip-products` - Save VIP products
+- `GET /api/products/application/:application_id` - Get products for application
+
+### Sales Channels
+- `GET /api/sales` - Get all sales channels
+- `POST /api/sales/configure-plans` - Configure plans for sales channels
+
+### Pixelbin
+- `POST /api/pixelbin/upload` - Upload file to Pixelbin
+
+### Promotions
+- `POST /api/promotion/create-campaign` - Create campaign
+
+## Development
+
+### Code Style
+- Use ES6+ features
+- Follow the existing code style
+- Add JSDoc comments for functions
+- Use meaningful variable and function names
+
+### Testing
+```bash
+npm test
+```
+
+### Building for Production
+```bash
+npm run build
+```
+
+## Deployment
+
+1. Build the frontend:
+```bash
+cd frontend
+npm run build
+```
+
+2. Start the production server:
+```bash
+npm start
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
