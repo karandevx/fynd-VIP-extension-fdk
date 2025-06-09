@@ -204,7 +204,7 @@ const VipProducts = ({
                           type="radio"
                           name={`radio-${plan.title}`}
                           checked={isSelected}
-                          onChange={() => handleProductSelect(plan.title, product.uid, product.item_code)}
+                          onChange={() => handleProductSelect(plan.title, product.uid, product.slug)}
                           disabled={isDisabled}
                           className="mt-1 h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded-full transition-all duration-200"
                         />
