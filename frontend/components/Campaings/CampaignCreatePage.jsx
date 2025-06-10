@@ -7,6 +7,7 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import SalesChannelSelectionModal from "./SalesChannelSelectionModal";
 import urlJoin from "url-join";
+import { useSelector } from "react-redux";
 
 const CampaignCreatePage = ({
   currentStep,
@@ -33,6 +34,8 @@ const CampaignCreatePage = ({
 
   // Rename the state variable selectedCustomers to selectedSaleschannels
   const [selectedSaleschannels, setSelectedSaleschannels] = useState([]);
+
+  const { plans } = useSelector((state) => state.benefits);
 
   // State for custom validation errors
   const [dateError, setDateError] = useState("");
@@ -246,9 +249,11 @@ const CampaignCreatePage = ({
                       })}
                     >
                       <option value="">Select Campaign Type</option>
-                      <option value="PRODUCT_EXCLUSIVITY">Product Exclusivity</option>
-                      <option value="CUSTOM_PROMOTIONS">Custom Promotions</option>
-                      <option value="PRODUCT_EXCLUSIVITY_AND_CUSTOM_PROMOTIONS">Product Exclusivity & Custom Promotions</option>
+                      {plans.filter((plan) => plan.isEnabled).map((plan) => (
+                        <option key={plan.id} className="capitalize" value={plan.title}>
+                          {plan.title.replace(/_/g, " ")}
+                        </option>
+                      ))}
                     </select>
                     {errors.campaignType && <p className="mt-2 !text-sm text-red-600">{errors.campaignType.message}</p>}
                   </div>

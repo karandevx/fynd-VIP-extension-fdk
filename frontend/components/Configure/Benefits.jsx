@@ -13,6 +13,7 @@ import {
   fetchSalesChannels,
   saveBenefits,
 } from '../../src/features/benefits/benefitsSlice';
+import { fetchConfig } from "../../src/features/config/configSlice";
 
 const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
   const EXAMPLE_MAIN_URL = window.location.origin;
@@ -49,6 +50,10 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
       toast.error(error);
     }
   }, [error]);
+
+  const handleRefresh = () => {
+    dispatch(fetchConfig(company_id));
+  };
 
   const handlePlansToggle = (index) => {
     dispatch(togglePlan({ index }));
@@ -137,6 +142,7 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
 
     if (saveBenefits.fulfilled.match(resultAction)) {
       toast.success("Plans saved successfully");
+      handleRefresh();
     }
   };
 
@@ -361,7 +367,7 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
           {plans?.map((plan, index) => (
             <div
               key={index}
-              className="border p-5 mb-4 rounded-xl shadow-sm bg-gray-50"
+              className={`border p-5 mb-4 rounded-xl shadow-sm bg-gray-50 ${plan.img && plan.description ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <div className="flex justify-between items-center mb-2">
                 <h4 className="font-semibold text-gray-900">{plan.title.replace(/_/g, " ")}</h4>
@@ -369,8 +375,7 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
                   type="checkbox"
                   checked={plan.isEnabled}
                   onChange={() => handlePlansToggle(index)}
-                  className={plan.isEnabled ? 'opacity-50 cursor-not-allowed' : ''}
-                  disabled={plan.isEnabled}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
               </div>
               {plan?.isEnabled && (
@@ -378,13 +383,13 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
                   <div>
                     <textarea
                       placeholder="Enter description"
-                      className={`w-full border p-2 rounded-xl ${plan.isEnabled ? 'opacity-50 cursor-not-allowed' : ''} ${!plan.description?.trim() && plan.isEnabled ? 'border-red-500' : ''}`}
+                      className={`w-full border p-2 rounded-xl ${!plan.description?.trim() && plan.isEnabled ? 'border-red-500' : ''} ${plan.img && plan.description ? 'opacity-50 cursor-not-allowed' : ''}`}
                       value={plan.description}
                       onChange={(e) => handlePlanChange(index, "description", e.target.value)}
-                      disabled={plan.isEnabled}
+                      disabled={plan.img && plan.description}
                     />
                     {!plan.description?.trim() && plan.isEnabled && (
-                      <p className="text-red-500 text-sm mt-1">Description is required</p>
+                      <p className="text-red-500 !text-sm mt-1">Description is required</p>
                     )}
                   </div>
                   <div className="flex flex-col items-start space-y-2 w-full">
@@ -397,7 +402,7 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
                     ) : (
                       <>
                         <label
-                          className={`cursor-pointer w-full flex items-center justify-center px-4 py-2 bg-blue-100 text-blue-600 font-medium rounded-xl border border-blue-300 transition-colors duration-200 ${plan.isEnabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-200'} ${!plan.img && plan.isEnabled ? 'border-red-500' : ''}`}
+                          className={`cursor-pointer w-full flex items-center justify-center px-4 py-2 bg-blue-100 text-blue-600 font-medium rounded-xl border border-blue-300 transition-colors duration-200 hover:bg-blue-200 ${!plan.img && plan.isEnabled ? 'border-red-500' : ''}`}
                         >
                           <input
                             type="file"
@@ -413,12 +418,11 @@ const Benefits = ({ initialPlans = [], applicationIds = [] }) => {
                                 toast.success("Image uploaded successfully");
                               }
                             }}
-                            disabled={plan.isEnabled}
                           />
                           📷 Upload Image
                         </label>
                         {!plan.img && plan.isEnabled && (
-                          <p className="text-red-500 text-sm">Image is required</p>
+                          <p className="text-red-500 !text-sm">Image is required</p>
                         )}
                       </>
                     )}

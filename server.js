@@ -703,12 +703,14 @@ salesChannelRouter.post(
       const db = client.db(`${companyId}_VIP_Program`);
       const collection = db.collection("vip_configs");
 
-      const existingConfig = await collection.findOne({ companyId });
+      const existingConfig = await collection?.findOne({ companyId });
+
+      console.log("existingConfig", companyId);
 
       const userAttributesMap = existingConfig?.userAttributeIds || {};
       const userGrpIdMap = existingConfig?.userGrpIds || {};
       const existingAppIds = new Set(
-        Object.keys(existingConfig?.applicationIds)
+        Object.keys(existingConfig?.applicationIds || {})
       );
       const existingPlansMap = {}; // appId -> plan titles
 
@@ -728,7 +730,7 @@ salesChannelRouter.post(
         const existingPlanSlugs = existingPlansMap[appId] || new Set();
 
         for (const plan of enabledPlans) {
-          const planSlug = plan.title.toLowerCase();
+          const planSlug = plan.title;
           if (existingPlanSlugs.has(planSlug)) {
             console.log(
               `Plan '${plan.title}' already exists for app ${appId}, skipping...`
@@ -737,10 +739,7 @@ salesChannelRouter.post(
           }
 
           const userAttrInput = {
-            name: plan.title
-              .replace(/_/g, " ")
-              .toLowerCase()
-              .replace(/\b\w/g, (c) => c.toUpperCase()),
+            name: plan.title ,
             slug: planSlug,
             type: "boolean",
             description: `User attribute for ${plan.title
@@ -808,7 +807,7 @@ salesChannelRouter.post(
       const update = {
         $set: {
           companyId,
-          benefits: updatedPlans,
+          benefits: configuredPlans,
           applicationIds: [
             ...new Set([...(existingConfig?.applicationIds || []), ...appIds]),
           ],

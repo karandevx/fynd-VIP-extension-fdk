@@ -8,6 +8,7 @@ import {
   fetchVipProducts,
   saveVipProducts,
 } from '../../src/features/vipProducts/vipProductsSlice';
+import { fetchConfig } from "../../src/features/config/configSlice";
 
 const VipProducts = ({
   initialProducts = [],
@@ -63,6 +64,7 @@ const VipProducts = ({
   }, [error]);
 
   const handleRefresh = () => {
+    dispatch(fetchConfig(company_id));
     dispatch(fetchVipProducts(company_id));
   };
 
@@ -74,8 +76,13 @@ const VipProducts = ({
     return getAllSelectedProductUids().includes(productUid);
   };
 
+  const isPlanConfigured = (planTitle) => {
+    // Check if plan already has a product selected from initial data
+    return initialProducts.some(product => product[planTitle]);
+  };
+
   const handleProductSelect = (planTitle, productUid, itemCode) => {
-    if (isConfigured) return;
+    if (isConfigured || isPlanConfigured(planTitle)) return;
     
     if (isProductSelectedInAnyPlan(productUid)) {
       toast.warning("This product is already selected in another plan");
@@ -101,7 +108,7 @@ const VipProducts = ({
 
     if (saveVipProducts.fulfilled.match(resultAction)) {
       toast.success("VIP products saved successfully");
-      setActiveTab("benefits");
+      handleRefresh();
     }
   };
 
@@ -167,6 +174,7 @@ const VipProducts = ({
       ) : (
         enabledPlans?.map((plan) => {
           const selected = getSelectedForPlan(plan.title);
+          const isPlanAlreadyConfigured = isPlanConfigured(plan.title);
 
           return (
             <div key={plan.title} className="space-y-4 mb-8">
@@ -178,7 +186,12 @@ const VipProducts = ({
                 />
                 <div>
                   <h3 className="!text-lg font-semibold text-gray-800">{plan.title.replace(/_/g, " ")}</h3>
-                  <p className="!text-sm text-gray-600">{plan.description}</p>
+                  <p className="!text-sm text-gray-600 !m-0">{plan.description}</p>
+                  {isPlanAlreadyConfigured && (
+                    <span className="inline-block mt-2 px-2 py-1 text-xs font-medium text-green-800 bg-green-100 rounded-full border border-green-200">
+                      Product Already Selected
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -188,7 +201,10 @@ const VipProducts = ({
                 <div className="grid md:grid-cols-3 gap-6">
                   {productList?.map((product) => {
                     const isSelected = selected?.uid === product.uid;
-                    const isDisabled = isConfigured || (isProductSelectedInAnyPlan(product.uid) && !isSelected);
+                    const isDisabled = isConfigured || 
+                      isPlanAlreadyConfigured || 
+                      (isProductSelectedInAnyPlan(product.uid) && !isSelected);
+
                     return (
                       <label
                         key={product.uid}
