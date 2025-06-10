@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
@@ -10,17 +10,24 @@ const Configure = () => {
   const { company_id } = useParams();
   const dispatch = useDispatch();
   const { data: config, loading, error, lastFetched } = useSelector((state) => state.config);
+  const isFirstMount = useRef(true);
 
   // Active Tab State
   const [activeTab, setActiveTab] = useState("plans");
 
   useEffect(() => {
-    // Only fetch if we don't have data or if it's stale (older than 5 minutes)
-    const shouldFetch = !config || !lastFetched || (Date.now() - new Date(lastFetched).getTime() > 5 * 60 * 1000);
-    if (shouldFetch) {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      dispatch(fetchConfig(company_id));
+      return;
+    }
+
+    // Only fetch if data is stale (older than 5 minutes)
+    const isStale = !lastFetched || (Date.now() - new Date(lastFetched).getTime() > 5 * 60 * 1000);
+    if (isStale) {
       dispatch(fetchConfig(company_id));
     }
-  }, [company_id, dispatch, config, lastFetched]);
+  }, [company_id, dispatch]);
 
   useEffect(() => {
     if (error) {
@@ -54,7 +61,7 @@ const Configure = () => {
             <nav className="flex space-x-8">
               <button
                 onClick={() => setActiveTab('plans')}
-                className={`whitespace-nowrap py-4 px-1 border-b-2 font-semibold text-base transition-all duration-200 ${
+                className={`whitespace-nowrap py-4 px-1 border-b-2 font-semibold hover:cursor-pointer text-base transition-all duration-200 ${
                   activeTab === 'plans'
                     ? 'border-blue-600 text-blue-700'
                     : 'border-transparent text-gray-500 hover:text-blue-600 hover:border-blue-300'
@@ -63,8 +70,8 @@ const Configure = () => {
                 Plans
               </button>
               <button
-                onClick={() => setActiveTab('vip')}
-                className={`whitespace-nowrap py-4 px-1 border-b-2 font-semibold text-base transition-all duration-200 ${
+                onClick={() =>  config && setActiveTab('vip')}
+                className={`whitespace-nowrap py-4 px-1 border-b-2 font-semibold hover:cursor-pointer text-base transition-all duration-200 ${
                   activeTab === 'vip'
                     ? 'border-blue-600 text-blue-700'
                     : 'border-transparent text-gray-500 hover:text-blue-600 hover:border-blue-300'
@@ -87,7 +94,7 @@ const Configure = () => {
               <VipProducts
                 initialProducts={config?.vipProducts || []}
                 setActiveTab={setActiveTab}
-                disabled={config?.vipProducts?.length > 0}
+                disabled={false}
                 config={config}
               />
             )}

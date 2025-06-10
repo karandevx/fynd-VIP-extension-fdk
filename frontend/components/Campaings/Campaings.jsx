@@ -63,6 +63,10 @@ const Campaigns = () => {
     },
   } = useSelector((state) => state.products);
 
+  const { data: config } = useSelector(
+    (state) => state.config
+  );
+
   // State for Customer Modal
   const [customerSearchTerm, setCustomerSearchTerm] = useState("");
   const [customerSortField, setCustomerSortField] = useState("firstname");
@@ -119,13 +123,12 @@ const Campaigns = () => {
     // Only fetch if we don't have data or if it's stale (older than 5 minutes)
     const shouldFetch =
       !fetchedCampaigns ||
-      fetchedCampaigns.length === 0 ||
       !lastFetched ||
       Date.now() - new Date(lastFetched).getTime() > 5 * 60 * 1000;
     if (shouldFetch) {
       dispatch(fetchCampaigns(company_id));
     }
-  }, [dispatch, company_id, fetchedCampaigns, lastFetched]);
+  }, [dispatch, company_id]);
 
   const handleRefresh = () => {
     dispatch(fetchCampaigns(company_id));
@@ -372,12 +375,12 @@ const Campaigns = () => {
                   Manage and analyze your marketing campaigns with ease.
                 </p>
               </div>
-              <button
+             { config && <button
                 onClick={() => setShowCreateCampaign(true)}
                 className="bg-gradient-to-r from-blue-600 to-indigo-500 hover:from-blue-700 hover:to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200"
               >
                 + Create Campaign
-              </button>
+              </button>}
             </div>
 
             {/* Card Container */}
